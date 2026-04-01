@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: smartclinic
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+```
+
+### Step 2 — Update `requirements.txt`
+Open it and replace everything with:
+```
+flask
+flask-sqlalchemy
+groq
+python-dotenv
+gunicorn
