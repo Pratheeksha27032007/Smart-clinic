@@ -1,3 +1,5 @@
 flask
 flask-sqlalchemy
-google-generativeai
+groq
+python-dotenv
+gunicorn
