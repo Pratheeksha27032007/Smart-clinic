@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}— Appointments{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>📅 Appointments</h1>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">⚠️ {{ error }}</div>
+{% endif %}
+
+<div class="two-col">
+  <!-- Booking form -->
+  <div class="card">
+    <h3>Book New Appointment</h3>
+
+    <div class="symptom-checker">
+      <label>Enter symptoms first for AI doctor suggestion</label>
+      <div style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+        <input type="text" id="symptom-input" placeholder="e.g. fever, headache, cough" style="flex:1;">
+        <button class="btn btn-ai" onclick="suggestDoctor()">🤖 Suggest Doctor</button>
+      </div>
+      <div id="ai-suggestion" class="ai-box" style="display:none; margin-top:0.75rem;"></div>
+    </div>
+
+    <form action="/appointments/book" method="POST" class="appt-form" style="margin-top:1rem;">
+      <div class="form-group">
+        <label>Patient Name</label>
+        <input type="text" name="patient_name" required placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label>Age</label>
+        <input type="number" name="patient_age" required min="1" max="120">
+      </div>
+      <div class="form-group">
+        <label>Symptoms</label>
+        <textarea name="symptoms" rows="2" placeholder="Describe symptoms briefly"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Select Doctor</label>
+        <select name="doctor_id" id="doctor-select" required>
+          <option value="">-- Choose a Doctor --</option>
+          {% for doc in doctors %}
+          <option value="{{ doc.id }}">{{ doc.name }} — {{ doc.specialty }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" name="appointment_date" required
+               min="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Time Slot</label>
+        <select name="appointment_time" required>
+          <option value="">-- Select Time --</option>
+          {% for hour in range(9, 18) %}
+          <option value="{{ '%02d:00'|format(hour) }}">{{ '%02d:00'|format(hour) }}</option>
+          <option value="{{ '%02d:30'|format(hour) }}">{{ '%02d:30'|format(hour) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Book Appointment</button>
+    </form>
+  </div>
+
+  <!-- Appointments list -->
+  <div class="card">
+    <h3>All Appointments</h3>
+    {% if appointments %}
+    <div class="appt-list">
+      {% for appt in appointments %}
+      <div class="appt-item">
+        <div class="appt-header">
+          <strong>{{ appt.patient_name }}</strong>
+          <span class="badge badge-blue">Age {{ appt.patient_age }}</span>
+        </div>
+        <div class="appt-details">
+          <span>👨‍⚕️ {{ appt.doctor.name }}</span>
+          <span>📅 {{ appt.appointment_date }} at {{ appt.appointment_time }}</span>
+        </div>
+        {% if appt.symptoms %}
+        <p class="appt-symptoms">{{ appt.symptoms }}</p>
+        {% endif %}
+        <form action="/appointments/delete/{{ appt.id }}" method="POST"
+              onsubmit="return confirm('Cancel this appointment?')" style="margin-top:0.5rem;">
+          <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No appointments yet. Book one!</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function suggestDoctor() {
+  const symptoms = document.getElementById('symptom-input').value.trim();
+  if (!symptoms) { alert('Please enter symptoms first'); return; }
+  const btn = event.target;
+  btn.textContent = '⏳ Analyzing...';
+  btn.disabled = true;
+  const res  = await fetch('/api/suggest-doctor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ symptoms })
+  });
+  const data = await res.json();
+  btn.textContent = '🤖 Suggest Doctor';
+  btn.disabled = false;
+  const box = document.getElementById('ai-suggestion');
+  box.style.display = 'block';
+  const urgencyColor = data.urgency === 'High' ? 'red' : data.urgency === 'Medium' ? 'yellow' : 'green';
+  box.innerHTML = `
+    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+      <span class="badge badge-${urgencyColor}">${data.urgency} Urgency</span>
+    </div>
+    <strong>${data.doctor_name}</strong> (${data.specialty})<br>
+    <small>${data.reason}</small>`;
+  // Auto-select the suggested doctor
+  const select = document.getElementById('doctor-select');
+  for (let opt of select.options) {
+    if (opt.text.includes(data.doctor_name.split(' ').slice(-1)[0])) {
+      opt.selected = true; break;
+    }
+  }
+}
+// Set min date for appointments to today
+document.querySelector('input[type="date"]').min = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}

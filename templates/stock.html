@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+{% block title %}— Medicine Stock{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>💊 Medicine Stock</h1>
+  <button class="btn btn-primary" onclick="toggleForm('add-form')">+ Add Medicine</button>
+</div>
+
+{% if low_stock %}
+<div class="alert alert-danger">
+  ⚠️ <strong>{{ low_stock|length }} medicines</strong> are below reorder level.
+  <button class="btn btn-sm btn-ai" onclick="getAIReorder()">🤖 Get AI Reorder Plan</button>
+</div>
+{% endif %}
+
+<div id="ai-result" class="ai-box" style="display:none;"></div>
+
+<!-- Add medicine form -->
+<div id="add-form" class="card" style="display:none; margin-bottom:1.5rem;">
+  <h3 style="margin-bottom:1rem;">Add New Medicine</h3>
+  <form action="/stock/add" method="POST" class="form-grid">
+    <div class="form-group">
+      <label>Medicine Name</label>
+      <input type="text" name="name" required placeholder="e.g. Paracetamol 500mg">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <input type="text" name="category" required placeholder="e.g. Analgesic">
+    </div>
+    <div class="form-group">
+      <label>Quantity</label>
+      <input type="number" name="quantity" required min="0">
+    </div>
+    <div class="form-group">
+      <label>Reorder Level</label>
+      <input type="number" name="reorder_level" required min="0" value="20">
+    </div>
+    <div class="form-group">
+      <label>Unit Price (₹)</label>
+      <input type="number" name="unit_price" required min="0" step="0.01">
+    </div>
+    <div class="form-group" style="display:flex; align-items:flex-end; gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">Add Medicine</button>
+      <button type="button" class="btn btn-secondary" onclick="toggleForm('add-form')">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- Stock table -->
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Medicine</th>
+        <th>Category</th>
+        <th>Quantity</th>
+        <th>Reorder Level</th>
+        <th>Price (₹)</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for med in medicines %}
+      <tr>
+        <td><strong>{{ med.name }}</strong></td>
+        <td><span class="badge badge-blue">{{ med.category }}</span></td>
+        <td>{{ med.quantity }}</td>
+        <td>{{ med.reorder_level }}</td>
+        <td>₹{{ "%.2f"|format(med.unit_price) }}</td>
+        <td>
+          {% if med.quantity == 0 %}
+            <span class="badge badge-red">Out of Stock</span>
+          {% elif med.quantity <= med.reorder_level %}
+            <span class="badge badge-yellow">Low Stock</span>
+          {% else %}
+            <span class="badge badge-green">In Stock</span>
+          {% endif %}
+        </td>
+        <td>
+          <button class="btn btn-sm" onclick="openUpdateModal({{ med.id }}, '{{ med.name }}', {{ med.quantity }})">Update</button>
+          <form action="/stock/delete/{{ med.id }}" method="POST" style="display:inline;"
+                onsubmit="return confirm('Delete {{ med.name }}?')">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Update Qty Modal -->
+<div id="update-modal" class="modal-overlay" style="display:none;">
+  <div class="modal">
+    <h3 id="modal-title">Update Stock</h3>
+    <form id="update-form" method="POST">
+      <div class="form-group">
+        <label>New Quantity</label>
+        <input type="number" name="quantity" id="modal-qty" min="0" required>
+      </div>
+      <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+        <button type="submit" class="btn btn-primary">Update</button>
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openUpdateModal(id, name, qty) {
+  document.getElementById('modal-title').textContent = 'Update: ' + name;
+  document.getElementById('modal-qty').value = qty;
+  document.getElementById('update-form').action = '/stock/update/' + id;
+  document.getElementById('update-modal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('update-modal').style.display = 'none';
+}
+async function getAIReorder() {
+  const btn = event.target;
+  btn.textContent = '⏳ Thinking...';
+  btn.disabled = true;
+  const res  = await fetch('/api/ai-reorder', { method: 'POST' });
+  const data = await res.json();
+  btn.textContent = '🤖 Get AI Reorder Plan';
+  btn.disabled = false;
+  const box = document.getElementById('ai-result');
+  box.style.display = 'block';
+  let html = `<h4>🤖 AI Reorder Suggestions</h4><p>${data.message}</p><div class="ai-items">`;
+  data.items.forEach(item => {
+    const color = item.priority === 'Critical' ? 'red' : item.priority === 'High' ? 'yellow' : 'green';
+    html += `<div class="ai-item">
+      <span class="badge badge-${color}">${item.priority}</span>
+      <strong>${item.name}</strong> — Order <strong>${item.reorder_qty} units</strong>
+      <p class="ai-reason">${item.reason}</p>
+    </div>`;
+  });
+  html += '</div>';
+  box.innerHTML = html;
+}
+</script>
+{% endblock %}

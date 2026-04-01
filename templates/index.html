@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}— Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Dashboard</h1>
+  <p class="subtitle">Welcome to SmartClinic — AI-powered clinic & pharmacy management</p>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon">💊</div>
+    <div class="stat-value">{{ total_medicines }}</div>
+    <div class="stat-label">Total Medicines</div>
+  </div>
+  <div class="stat-card {% if low_stock > 0 %}danger{% endif %}">
+    <div class="stat-icon">⚠️</div>
+    <div class="stat-value">{{ low_stock }}</div>
+    <div class="stat-label">Low Stock Alerts</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">👨‍⚕️</div>
+    <div class="stat-value">{{ total_doctors }}</div>
+    <div class="stat-label">Doctors Available</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon">📅</div>
+    <div class="stat-value">{{ today_appointments }}</div>
+    <div class="stat-label">Today's Appointments</div>
+  </div>
+</div>
+
+<div class="feature-grid">
+  <a href="/stock" class="feature-card">
+    <div class="feature-icon">💊</div>
+    <h3>Medicine Stock</h3>
+    <p>Track inventory, get AI reorder suggestions, manage all pharmacy items</p>
+    <span class="feature-cta">Manage Stock →</span>
+  </a>
+  <a href="/appointments" class="feature-card">
+    <div class="feature-icon">📅</div>
+    <h3>Appointments</h3>
+    <p>Book appointments, AI suggests best doctor based on symptoms</p>
+    <span class="feature-cta">Book Now →</span>
+  </a>
+  <a href="/chatbot" class="feature-card">
+    <div class="feature-icon">🤖</div>
+    <h3>AI Assistant</h3>
+    <p>Ask questions about medicines, availability, clinic timings and more</p>
+    <span class="feature-cta">Chat Now →</span>
+  </a>
+</div>
+{% endblock %}

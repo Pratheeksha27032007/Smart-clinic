@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}— AI Chatbot{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>🤖 AI Assistant</h1>
+  <p class="subtitle">Ask me anything about medicines, appointments, or clinic info</p>
+</div>
+
+<div class="chat-container card">
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg bot">
+      <div class="msg-bubble">
+        👋 Hi! I'm your SmartClinic AI assistant. Ask me about medicine availability, symptoms, appointments, or anything else!
+      </div>
+    </div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chat-input" placeholder="Type your question here..." onkeydown="if(event.key==='Enter') sendMessage()">
+    <button class="btn btn-primary" onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<div class="quick-questions">
+  <p>Quick questions:</p>
+  <div class="quick-btns">
+    <button class="quick-btn" onclick="askQuick('Do you have Paracetamol in stock?')">Stock check</button>
+    <button class="quick-btn" onclick="askQuick('I have fever and body pain. Which doctor should I see?')">Symptom help</button>
+    <button class="quick-btn" onclick="askQuick('What are the clinic timings?')">Clinic timings</button>
+    <button class="quick-btn" onclick="askQuick('How do I book an appointment?')">Book appointment</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function sendMessage() {
+  const input   = document.getElementById('chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  addMessage(message, 'user');
+  input.value = '';
+  addMessage('⏳ Thinking...', 'bot', 'typing-indicator');
+  const res  = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message })
+  });
+  const data = await res.json();
+  document.querySelector('.typing-indicator')?.remove();
+  addMessage(data.reply, 'bot');
+}
+
+function addMessage(text, sender, cls) {
+  const box  = document.getElementById('chat-messages');
+  const div  = document.createElement('div');
+  div.className = `chat-msg ${sender}${cls ? ' ' + cls : ''}`;
+  div.innerHTML  = `<div class="msg-bubble">${text}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function askQuick(q) {
+  document.getElementById('chat-input').value = q;
+  sendMessage();
+}
+</script>
+{% endblock %}
