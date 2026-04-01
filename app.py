@@ -36,6 +36,14 @@ def seed_data():
             Doctor(name="Dr. Arjun Mehta", specialty="Cardiologist", available_days="Mon,Wed,Fri"),
             Doctor(name="Dr. Sneha Patel", specialty="Dermatologist", available_days="Tue,Thu,Sat"),
             Doctor(name="Dr. Rahul Verma", specialty="Orthopedic", available_days="Mon,Tue,Thu,Fri"),
+            Doctor(name="Dr. Anjali Rao", specialty="Pediatrician", available_days="Mon,Wed,Fri"),
+            Doctor(name="Dr. Vikram Singh", specialty="Neurologist", available_days="Tue,Thu"),
+            Doctor(name="Dr. Meera Nair", specialty="Gynecologist", available_days="Mon,Wed,Sat"),
+            Doctor(name="Dr. Karan Desai", specialty="ENT Specialist", available_days="Tue,Thu,Fri"),
+            Doctor(name="Dr. Aisha Khan", specialty="Endocrinologist", available_days="Mon,Wed,Thu"),
+            Doctor(name="Dr. Suresh Iyer", specialty="Psychiatrist", available_days="Tue,Wed,Fri"),
+            Doctor(name="Dr. Nidhi Gupta", specialty="Ophthalmologist", available_days="Mon,Thu,Sat"),
+            Doctor(name="Dr. Rohan Malhotra", specialty="Urologist", available_days="Wed,Thu,Fri"),
         ]
         db.session.add_all(doctors)
     if Medicine.query.count() == 0:
