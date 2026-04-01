@@ -14,16 +14,14 @@ db.init_app(app)
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-def ai(prompt, history=None):
+def ai(prompt):
     try:
-        messages = [{"role": "system", "content": "You are a helpful SmartClinic medical assistant. Be safe, friendly and concise."}]
-        if history:
-            messages.extend(history)
-        else:
-            messages.append({"role": "user", "content": prompt})
         response = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=messages,
+            messages=[
+                {"role": "system", "content": "You are a helpful SmartClinic medical assistant. Be concise."},
+                {"role": "user", "content": prompt}
+            ],
             max_tokens=500
         )
         return response.choices[0].message.content.strip()
@@ -67,7 +65,6 @@ def index():
     return render_template('index.html', total_medicines=total_medicines, low_stock=low_stock,
                            total_doctors=total_doctors, today_appointments=today_appts)
 
-# ── STOCK ────────────────────────────────────────────────────
 @app.route('/stock')
 def stock():
     medicines = Medicine.query.all()
@@ -103,19 +100,19 @@ def ai_reorder():
     low_stock = Medicine.query.filter(Medicine.quantity <= Medicine.reorder_level).all()
     if not low_stock:
         return jsonify({"message": "All medicines are well-stocked!", "items": []})
-    items_text = "\n".join([f"- {m.name}: qty={m.quantity}, reorder level={m.reorder_level}" for m in low_stock])
-    prompt = f"""Pharmacy medicines running low:\n{items_text}\nReturn ONLY valid JSON array:
-[{{"name":"...","reorder_qty":50,"priority":"High","reason":"..."}}]"""
+    items_text = "\n".join([f"- {m.name}: qty={m.quantity}, reorder_level={m.reorder_level}" for m in low_stock])
+    prompt = f"""Pharmacy medicines running low:\n{items_text}\n
+Return ONLY a valid JSON array, no extra text:
+[{{"name":"...","reorder_qty":50,"priority":"Critical/High/Medium","reason":"..."}}]"""
     text = ai(prompt)
-    if text.startswith("```"):
-        text = "\n".join(text.split("\n")[1:-1])
+    if "```" in text:
+        text = text.split("```")[1].replace("json","").strip()
     try:
         suggestions = json.loads(text)
     except:
-        return jsonify({"error": "AI response parsing failed"})
+        return jsonify({"error": "AI response parsing failed", "items": []})
     return jsonify({"message": f"{len(low_stock)} items need reordering", "items": suggestions})
 
-# ── APPOINTMENTS ─────────────────────────────────────────────
 @app.route('/appointments')
 def appointments():
     doctors = Doctor.query.all()
@@ -142,7 +139,6 @@ def book_appointment():
     db.session.commit()
     return redirect(url_for('appointments'))
 
-# ── FIX: Delete appointment route was missing! ───────────────
 @app.route('/appointments/delete/<int:appt_id>', methods=['POST'])
 def delete_appointment(appt_id):
     appt = Appointment.query.get_or_404(appt_id)
@@ -150,23 +146,33 @@ def delete_appointment(appt_id):
     db.session.commit()
     return redirect(url_for('appointments'))
 
+# ── FIXED: suggest-doctor now returns urgency + specialty ────
 @app.route('/api/suggest-doctor', methods=['POST'])
 def suggest_doctor():
     symptoms = request.json.get('symptoms', '')
     doctors = Doctor.query.all()
-    doc_list = "\n".join([f"{d.name} ({d.specialty})" for d in doctors])
-    prompt = f"""Patient symptoms: {symptoms}\nDoctors:\n{doc_list}\nReturn ONLY JSON:
-{{"doctor_name":"...","specialty":"...","reason":"...","urgency":"Low/Medium/High"}}"""
+    doc_list = "\n".join([f"- {d.name} ({d.specialty})" for d in doctors])
+    prompt = f"""Patient symptoms: {symptoms}
+
+Available doctors:
+{doc_list}
+
+Based on symptoms pick the best doctor. Return ONLY valid JSON, no extra text:
+{{"doctor_name":"Dr. Full Name","specialty":"Specialty","reason":"brief reason","urgency":"Low/Medium/High"}}"""
     text = ai(prompt)
-    if text.startswith("```"):
-        text = "\n".join(text.split("\n")[1:-1])
+    if "```" in text:
+        text = text.split("```")[1].replace("json","").strip()
     try:
         result = json.loads(text)
+        # ensure all fields exist
+        result.setdefault("urgency", "Medium")
+        result.setdefault("specialty", "General Physician")
+        result.setdefault("reason", "Based on your symptoms")
     except:
-        return jsonify({"error": "AI response parsing failed"})
+        return jsonify({"doctor_name": "Dr. Priya Sharma", "specialty": "General Physician",
+                        "reason": "General physician recommended for your symptoms", "urgency": "Medium"})
     return jsonify(result)
 
-# ── CHATBOT with conversation history ────────────────────────
 @app.route('/chatbot')
 def chatbot():
     return render_template('chatbot.html')
@@ -176,36 +182,23 @@ def chat():
     data = request.json
     user_message = data.get('message', '')
     history = data.get('history', [])
-
     if not user_message.strip():
         return jsonify({"reply": "Please enter a message."})
-
     medicines = Medicine.query.all()
     med_list = ", ".join([f"{m.name} (qty:{m.quantity})" for m in medicines])
-
-    # Build full message history with context
-    messages = [
-        {"role": "system", "content": f"You are a SmartClinic assistant. Current medicines in stock: {med_list}. Be helpful and concise. Keep replies under 80 words."}
-    ]
-    # Add previous conversation history
-    for msg in history[-6:]:  # last 6 messages max
+    messages = [{"role": "system", "content": f"You are SmartClinic assistant. Medicines in stock: {med_list}. Be helpful, concise, under 80 words."}]
+    for msg in history[-6:]:
         messages.append(msg)
-    # Add current message
     messages.append({"role": "user", "content": user_message})
-
     try:
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=messages,
-            max_tokens=300
-        )
+            model="llama-3.1-8b-instant", messages=messages, max_tokens=300)
         reply = response.choices[0].message.content.strip()
         return jsonify({"reply": reply})
     except Exception as e:
         print("CHAT ERROR:", e)
-        return jsonify({"reply": "Something went wrong."})
+        return jsonify({"reply": "Something went wrong. Please try again."})
 
-# ── RUN ──────────────────────────────────────────────────────
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)

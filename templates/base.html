@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SmartClinic {% block title %}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
 <nav class="navbar">
   <a href="/" class="nav-brand">
-    <span class="brand-icon">✚</span>
+    <div class="brand-icon">✚</div>
     <span>SmartClinic</span>
   </a>
   <div class="nav-links">
@@ -21,13 +21,28 @@
     <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}">📅 Appointments</a>
     <a href="/chatbot"      class="nav-link {% if '/chatbot' in request.path %}active{% endif %}">🤖 AI Chat</a>
   </div>
+  <button class="hamburger" onclick="toggleMenu()" id="hamburger">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
+
+<div class="mobile-menu" id="mobile-menu">
+  <a href="/"             class="nav-link {% if request.path=='/' %}active{% endif %}" onclick="toggleMenu()">🏠 Dashboard</a>
+  <a href="/stock"        class="nav-link {% if '/stock' in request.path %}active{% endif %}" onclick="toggleMenu()">💊 Stock</a>
+  <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}" onclick="toggleMenu()">📅 Appointments</a>
+  <a href="/chatbot"      class="nav-link {% if '/chatbot' in request.path %}active{% endif %}" onclick="toggleMenu()">🤖 AI Chat</a>
+</div>
 
 <main class="main-content">
   {% block content %}{% endblock %}
 </main>
 
 <script src="{{ url_for('static', filename='script.js') }}"></script>
+<script>
+function toggleMenu() {
+  document.getElementById('mobile-menu').classList.toggle('open');
+}
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
