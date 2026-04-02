@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SmartClinic {% block title %}{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +19,15 @@
     <a href="/"             class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
     <a href="/stock"        class="nav-link {% if '/stock' in request.path %}active{% endif %}">💊 Stock</a>
     <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}">📅 Appointments</a>
-    <a href="/chatbot"      class="nav-link {% if '/chatbot' in request.path %}active{% endif %}">🤖 AI Chat</a>
+    {% if session.get('user_id') %}
+    <div class="nav-user">
+      <div class="nav-avatar">{{ session.get('username','?')[0]|upper }}</div>
+      <span>{{ session.get('username') }}</span>
+      <a href="/logout" class="nav-logout">Logout</a>
+    </div>
+    {% else %}
+    <a href="/login" class="nav-link">Login</a>
+    {% endif %}
   </div>
   <button class="hamburger" onclick="toggleMenu()" id="hamburger">
     <span></span><span></span><span></span>
@@ -27,20 +35,107 @@
 </nav>
 
 <div class="mobile-menu" id="mobile-menu">
-  <a href="/"             class="nav-link {% if request.path=='/' %}active{% endif %}" onclick="toggleMenu()">🏠 Dashboard</a>
-  <a href="/stock"        class="nav-link {% if '/stock' in request.path %}active{% endif %}" onclick="toggleMenu()">💊 Stock</a>
-  <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}" onclick="toggleMenu()">📅 Appointments</a>
-  <a href="/chatbot"      class="nav-link {% if '/chatbot' in request.path %}active{% endif %}" onclick="toggleMenu()">🤖 AI Chat</a>
+  <a href="/"             class="nav-link {% if request.path=='/' %}active{% endif %}" onclick="closeMenu()">🏠 Dashboard</a>
+  <a href="/stock"        class="nav-link {% if '/stock' in request.path %}active{% endif %}" onclick="closeMenu()">💊 Stock</a>
+  <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}" onclick="closeMenu()">📅 Appointments</a>
+  {% if session.get('user_id') %}
+  <a href="/logout" class="nav-link" onclick="closeMenu()">🚪 Logout ({{ session.get('username') }})</a>
+  {% else %}
+  <a href="/login" class="nav-link" onclick="closeMenu()">🔐 Login</a>
+  {% endif %}
 </div>
 
 <main class="main-content">
   {% block content %}{% endblock %}
 </main>
 
+<!-- ── Floating Chatbot ─────────────────────────────────── -->
+{% if request.path != '/chatbot' %}
+<button class="chat-fab" onclick="toggleChat()" id="chatFab" title="AI Assistant">
+  💬
+  <div class="chat-fab-badge"></div>
+</button>
+
+<div class="chat-window" id="chatWindow">
+  <div class="chat-header">
+    <div class="chat-header-avatar">🤖</div>
+    <div class="chat-header-info">
+      <strong>SmartClinic AI</strong>
+      <span>Always here to help</span>
+    </div>
+    <button class="chat-header-close" onclick="toggleChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="fab-chat-messages">
+    <div class="chat-msg bot">
+      <div class="msg-bubble">👋 Hi! Ask me about medicines, symptoms, or appointments!</div>
+    </div>
+  </div>
+  <div class="quick-btns">
+    <button class="quick-btn" onclick="fabAskQuick('Stock check')">Stock?</button>
+    <button class="quick-btn" onclick="fabAskQuick('Book appointment')">Appointment?</button>
+    <button class="quick-btn" onclick="fabAskQuick('Clinic timings')">Timings?</button>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="fab-chat-input" placeholder="Ask something..." onkeydown="if(event.key==='Enter') fabSendMessage()">
+    <button class="btn btn-primary" onclick="fabSendMessage()">➤</button>
+  </div>
+</div>
+{% endif %}
+
 <script src="{{ url_for('static', filename='script.js') }}"></script>
 <script>
 function toggleMenu() {
   document.getElementById('mobile-menu').classList.toggle('open');
+}
+function closeMenu() {
+  document.getElementById('mobile-menu').classList.remove('open');
+}
+
+// ── Floating chatbot ──────────────────────────────────────
+let fabHistory = [];
+let chatOpen = false;
+
+function toggleChat() {
+  chatOpen = !chatOpen;
+  const win = document.getElementById('chatWindow');
+  const fab = document.getElementById('chatFab');
+  win.classList.toggle('open', chatOpen);
+  fab.innerHTML = chatOpen ? '✕<div class="chat-fab-badge"></div>' : '💬<div class="chat-fab-badge"></div>';
+  if (chatOpen) document.getElementById('fab-chat-input').focus();
+}
+
+async function fabSendMessage() {
+  const input = document.getElementById('fab-chat-input');
+  const message = input.value.trim();
+  if (!message) return;
+  fabAddMessage(message, 'user');
+  input.value = '';
+  fabAddMessage('⏳ Thinking...', 'bot', 'fab-typing');
+  fabHistory.push({ role: 'user', content: message });
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, history: fabHistory.slice(0, -1) })
+  });
+  const data = await res.json();
+  document.querySelector('.fab-typing')?.remove();
+  fabAddMessage(data.reply, 'bot');
+  fabHistory.push({ role: 'assistant', content: data.reply });
+  if (fabHistory.length > 10) fabHistory = fabHistory.slice(-10);
+}
+
+function fabAddMessage(text, sender, cls) {
+  const box = document.getElementById('fab-chat-messages');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${sender}${cls ? ' ' + cls : ''}`;
+  div.innerHTML = `<div class="msg-bubble">${text}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function fabAskQuick(q) {
+  document.getElementById('fab-chat-input').value = q;
+  fabSendMessage();
 }
 </script>
 {% block scripts %}{% endblock %}
