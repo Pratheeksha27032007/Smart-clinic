@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}— My Orders{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>📦 <span style="color:var(--blue-lt)">My Orders</span></h1><p class="subtitle">Track your medicine orders</p></div></div>
+{% if orders %}
+  {% for o in orders %}
+  <div class="card" style="margin-bottom:1rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">
+      <div>
+        <strong style="color:var(--text);font-size:1rem;">{{ o.medicine.name }}</strong>
+        <div style="font-size:0.8rem;color:var(--text-3);">Qty: {{ o.quantity }} &nbsp;|&nbsp; ₹{{ "%.2f"|format(o.total_price) }} &nbsp;|&nbsp; {{ o.created_at.strftime('%d %b %Y') }}</div>
+      </div>
+      <span class="badge badge-{% if o.status=='delivered' %}green{% elif o.status=='shipped' %}cyan{% elif o.status=='packing' %}purple{% elif o.status=='accepted' %}blue{% else %}yellow{% endif %}">{{ o.status }}</span>
+    </div>
+    <!-- Tracking Steps -->
+    <div class="track-steps">
+      {% set steps = [('pending','🕐','Ordered'), ('accepted','✅','Confirmed'), ('packing','📦','Packing'), ('shipped','🚚','Shipped'), ('delivered','🏠','Delivered')] %}
+      {% set status_order = ['pending','accepted','packing','shipped','delivered'] %}
+      {% set current_idx = status_order.index(o.status) if o.status in status_order else 0 %}
+      {% for st, icon, label in steps %}
+        {% set idx = loop.index0 %}
+        <div class="track-step {% if idx < current_idx %}done{% elif idx == current_idx %}active{% endif %}">
+          <div class="track-dot">{{ icon }}</div>
+          <div class="track-label">{{ label }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    {% if o.address %}
+    <div style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-3);">📍 {{ o.address }}</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="card"><p class="empty-state">No orders yet. <a href="/patient/medicines" style="color:var(--blue-lt);">Order medicines →</a></p></div>
+{% endif %}
+{% endblock %}

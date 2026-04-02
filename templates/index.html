@@ -1,62 +1,266 @@
 {% extends 'base.html' %}
 {% block title %}— Dashboard{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>Dashboard</h1>
-    <p class="subtitle">Welcome to SmartClinic — AI-powered clinic & pharmacy management</p>
-  </div>
-</div>
 
+{% if role == 'doctor' %}
+<!-- ═══════════ DOCTOR DASHBOARD ═══════════ -->
+<div class="dash-hero">
+  <div class="dash-hero-text">
+    <h1>Good {{ time_of_day }}, <span>Dr. {{ session.get('full_name','') }}</span> 👋</h1>
+    <p>Here's your clinic overview for today</p>
+  </div>
+  <div class="dash-hero-icon">🩺</div>
+</div>
 <div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon-wrap blue">💊</div>
-    <div class="stat-info">
-      <div class="stat-value">{{ total_medicines }}</div>
-      <div class="stat-label">Total Medicines</div>
-    </div>
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">📅</div><div class="stat-info"><div class="stat-value">{{ today_appts }}</div><div class="stat-label">Today's Appointments</div></div></div>
+  <div class="stat-card amber"><div class="stat-icon-wrap amber">⏳</div><div class="stat-info"><div class="stat-value">{{ pending_appts }}</div><div class="stat-label">Pending Approval</div></div></div>
+  <div class="stat-card green"><div class="stat-icon-wrap green">✅</div><div class="stat-info"><div class="stat-value">{{ accepted_appts }}</div><div class="stat-label">Accepted Today</div></div></div>
+  <div class="stat-card purple"><div class="stat-icon-wrap purple">💬</div><div class="stat-info"><div class="stat-value">{{ unread_msgs }}</div><div class="stat-label">Unread Messages</div></div></div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><span class="card-title">📅 Today's Schedule</span><a href="/doctor/appointments" class="btn btn-sm btn-cyan">View All</a></div>
+    {% if todays_list %}
+      <div class="appt-list">
+        {% for a in todays_list %}
+        <div class="appt-item status-{{ a.status }}">
+          <div class="appt-header">
+            <strong style="color:var(--text);">{{ a.patient_name }}</strong>
+            <span class="badge badge-{% if a.status=='accepted' %}green{% elif a.status=='declined' %}red{% else %}yellow{% endif %}">{{ a.status }}</span>
+          </div>
+          <div class="appt-details">
+            <span>🕐 {{ a.appointment_time }} &nbsp;|&nbsp; Age {{ a.patient_age }}</span>
+            {% if a.symptoms %}<span>🩺 {{ a.symptoms }}</span>{% endif %}
+          </div>
+          {% if a.status == 'pending' %}
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <form action="/doctor/accept/{{ a.id }}" method="POST" style="display:inline;">
+              <button class="btn btn-success btn-sm">✅ Accept</button>
+            </form>
+            <form action="/doctor/decline/{{ a.id }}" method="POST" style="display:inline;">
+              <button class="btn btn-danger btn-sm">❌ Decline</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-state">🎉 No appointments today!</p>
+    {% endif %}
   </div>
-  <div class="stat-card {% if low_stock > 0 %}danger{% endif %}">
-    <div class="stat-icon-wrap red">⚠️</div>
-    <div class="stat-info">
-      <div class="stat-value">{{ low_stock }}</div>
-      <div class="stat-label">Low Stock Alerts</div>
-    </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">💬 Recent Messages</span><a href="/messages" class="btn btn-sm btn-cyan">View All</a></div>
+    {% if recent_msgs %}
+      <div class="msg-thread">
+        {% for m in recent_msgs %}
+        <div class="msg-item {% if not m.is_read %}unread{% endif %}">
+          <div class="msg-from">{{ m.sender.full_name or m.sender.username }}</div>
+          <div class="msg-text">{{ m.content[:100] }}{% if m.content|length > 100 %}...{% endif %}</div>
+          <div class="msg-time">{{ m.created_at.strftime('%d %b, %I:%M %p') }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-state">No messages yet</p>
+    {% endif %}
   </div>
-  <div class="stat-card">
-    <div class="stat-icon-wrap teal">👨‍⚕️</div>
-    <div class="stat-info">
-      <div class="stat-value">{{ total_doctors }}</div>
-      <div class="stat-label">Doctors Available</div>
-    </div>
+</div>
+
+{% elif role == 'pharmacy' %}
+<!-- ═══════════ PHARMACY DASHBOARD ═══════════ -->
+<div class="dash-hero">
+  <div class="dash-hero-text">
+    <h1>Welcome, <span>Pharmacy Staff</span> 💊</h1>
+    <p>Manage inventory, orders, and billing</p>
   </div>
-  <div class="stat-card">
-    <div class="stat-icon-wrap green">📅</div>
-    <div class="stat-info">
-      <div class="stat-value">{{ today_appointments }}</div>
-      <div class="stat-label">Today's Appointments</div>
+  <div class="dash-hero-icon">💊</div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">💊</div><div class="stat-info"><div class="stat-value">{{ total_meds }}</div><div class="stat-label">Total Medicines</div></div></div>
+  <div class="stat-card red"><div class="stat-icon-wrap red">⚠️</div><div class="stat-info"><div class="stat-value">{{ low_stock }}</div><div class="stat-label">Low Stock</div></div></div>
+  <div class="stat-card amber"><div class="stat-icon-wrap amber">📦</div><div class="stat-info"><div class="stat-value">{{ pending_orders }}</div><div class="stat-label">Pending Orders</div></div></div>
+  <div class="stat-card green"><div class="stat-icon-wrap green">✅</div><div class="stat-info"><div class="stat-value">{{ delivered_today }}</div><div class="stat-label">Delivered Today</div></div></div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <div class="card-header"><span class="card-title">📦 Pending Orders</span><a href="/pharmacy/orders" class="btn btn-sm btn-cyan">Manage</a></div>
+    {% if orders_list %}
+      <div class="appt-list">
+        {% for o in orders_list %}
+        <div class="appt-item">
+          <div class="appt-header">
+            <strong style="color:var(--text);">{{ o.medicine.name }}</strong>
+            <span class="badge badge-yellow">{{ o.status }}</span>
+          </div>
+          <div class="appt-details">
+            <span>👤 {{ o.patient.full_name or o.patient.username }} &nbsp;|&nbsp; Qty: {{ o.quantity }}</span>
+            <span>💰 ₹{{ "%.2f"|format(o.total_price) }}</span>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+            <form action="/pharmacy/accept-order/{{ o.id }}" method="POST" style="display:inline;">
+              <button class="btn btn-success btn-sm">✅ Accept</button>
+            </form>
+            <form action="/pharmacy/pack-order/{{ o.id }}" method="POST" style="display:inline;">
+              <button class="btn btn-cyan btn-sm">📦 Pack</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty-state">No pending orders 🎉</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">⚠️ Low Stock Alert</span><a href="/pharmacy/stock" class="btn btn-sm btn-cyan">Stock</a></div>
+    {% if low_stock_list %}
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Medicine</th><th>Qty</th><th>Reorder</th></tr></thead>
+          <tbody>
+            {% for m in low_stock_list %}
+            <tr>
+              <td>{{ m.name }}</td>
+              <td><span class="badge badge-{% if m.quantity == 0 %}red{% else %}yellow{% endif %}">{{ m.quantity }}</span></td>
+              <td>{{ m.reorder_level }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="empty-state">All medicines in stock ✅</p>
+    {% endif %}
+  </div>
+</div>
+
+{% elif role == 'hospital' %}
+<!-- ═══════════ MANAGEMENT DASHBOARD ═══════════ -->
+<div class="dash-hero">
+  <div class="dash-hero-text">
+    <h1>Hospital <span>Management</span> 🏥</h1>
+    <p>Oversee doctors, pharmacy, funding & shipments</p>
+  </div>
+  <div class="dash-hero-icon">🏥</div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">👨‍⚕️</div><div class="stat-info"><div class="stat-value">{{ total_doctors }}</div><div class="stat-label">Doctors</div></div></div>
+  <div class="stat-card cyan"><div class="stat-icon-wrap cyan">🧑</div><div class="stat-info"><div class="stat-value">{{ total_patients }}</div><div class="stat-label">Patients</div></div></div>
+  <div class="stat-card green"><div class="stat-icon-wrap green">📦</div><div class="stat-info"><div class="stat-value">{{ total_orders }}</div><div class="stat-label">Total Orders</div></div></div>
+  <div class="stat-card amber"><div class="stat-icon-wrap amber">🚚</div><div class="stat-info"><div class="stat-value">{{ shipping_orders }}</div><div class="stat-label">In Transit</div></div></div>
+</div>
+<div class="three-col">
+  <div class="card">
+    <div class="card-header"><span class="card-title">👨‍⚕️ Doctors</span><a href="/mgmt/doctors" class="btn btn-sm btn-cyan">Manage</a></div>
+    {% for d in doctors_list %}
+    <div style="padding:0.5rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <div><div style="font-size:0.85rem;font-weight:600;color:var(--text);">{{ d.name }}</div><div style="font-size:0.75rem;color:var(--text-3);">{{ d.specialty }}</div></div>
+      <span class="badge badge-cyan">Active</span>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">🚚 Recent Shipments</span><a href="/mgmt/orders" class="btn btn-sm btn-cyan">All</a></div>
+    {% if recent_shipments %}
+      {% for o in recent_shipments %}
+      <div style="padding:0.5rem 0;border-bottom:1px solid var(--border);">
+        <div style="font-size:0.82rem;font-weight:600;color:var(--text);">{{ o.medicine.name }}</div>
+        <div style="font-size:0.75rem;color:var(--text-3);">{{ o.patient.full_name or o.patient.username }} • <span class="badge badge-{% if o.status=='delivered' %}green{% elif o.status=='shipped' %}cyan{% else %}yellow{% endif %}">{{ o.status }}</span></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-state">No shipments yet</p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-header"><span class="card-title">💰 Quick Actions</span></div>
+    <div style="display:flex;flex-direction:column;gap:0.5rem;">
+      <a href="/mgmt/doctors" class="btn btn-cyan">➕ Add New Doctor</a>
+      <a href="/mgmt/orders" class="btn btn-purple">🚚 Manage Shipments</a>
+      <a href="/pharmacy/stock" class="btn btn-warning">💊 View Stock</a>
+      <a href="/mgmt/funding" class="btn btn-success">💰 Funding Details</a>
     </div>
   </div>
 </div>
 
+{% elif role == 'patient' %}
+<!-- ═══════════ PATIENT DASHBOARD ═══════════ -->
+<div class="dash-hero">
+  <div class="dash-hero-text">
+    <h1>Hello, <span>{{ session.get('full_name','') }}</span> 👋</h1>
+    <p>Your health companion — book, order, track, consult</p>
+  </div>
+  <div class="dash-hero-icon">❤️</div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">📅</div><div class="stat-info"><div class="stat-value">{{ my_appts }}</div><div class="stat-label">My Appointments</div></div></div>
+  <div class="stat-card green"><div class="stat-icon-wrap green">📦</div><div class="stat-info"><div class="stat-value">{{ my_orders }}</div><div class="stat-label">My Orders</div></div></div>
+  <div class="stat-card cyan"><div class="stat-icon-wrap cyan">✅</div><div class="stat-info"><div class="stat-value">{{ accepted }}</div><div class="stat-label">Confirmed Appts</div></div></div>
+  <div class="stat-card amber"><div class="stat-icon-wrap amber">🚚</div><div class="stat-info"><div class="stat-value">{{ in_transit }}</div><div class="stat-label">Orders In Transit</div></div></div>
+</div>
 <div class="feature-grid">
-  <a href="/stock" class="feature-card">
-    <div class="feature-icon">💊</div>
-    <h3>Medicine Stock</h3>
-    <p>Track inventory, get AI reorder suggestions, manage all pharmacy items</p>
-    <span class="feature-cta">Manage Stock →</span>
-  </a>
-  <a href="/appointments" class="feature-card">
+  <a href="/patient/appointments" class="feature-card">
     <div class="feature-icon">📅</div>
-    <h3>Appointments</h3>
-    <p>Book appointments, AI suggests best doctor based on your symptoms</p>
+    <h3>Book Appointment</h3>
+    <p>Schedule with a doctor, AI suggests the best match for your symptoms</p>
     <span class="feature-cta">Book Now →</span>
   </a>
-  <a href="/chatbot" class="feature-card">
+  <a href="/patient/medicines" class="feature-card">
+    <div class="feature-icon">💊</div>
+    <h3>Order Medicines</h3>
+    <p>Browse available medicines and order them to your doorstep</p>
+    <span class="feature-cta">Browse →</span>
+  </a>
+  <a href="/patient/orders" class="feature-card">
+    <div class="feature-icon">🚚</div>
+    <h3>Track Orders</h3>
+    <p>Real-time tracking for all your medicine orders</p>
+    <span class="feature-cta">Track →</span>
+  </a>
+  <a href="/messages" class="feature-card">
+    <div class="feature-icon">💬</div>
+    <h3>Contact Doctor</h3>
+    <p>Send messages directly to your doctor for quick advice</p>
+    <span class="feature-cta">Message →</span>
+  </a>
+  <div class="feature-card" style="cursor:default;">
+    <div class="feature-icon">❤️</div>
+    <h3>Health Profile</h3>
+    {% if session.get('blood_group') %}
+    <p>Blood: <strong style="color:var(--red);">{{ session.get('blood_group') }}</strong> &nbsp;|&nbsp; Age: {{ session.get('age') }}</p>
+    {% else %}
+    <p>Your personal health information</p>
+    {% endif %}
+  </div>
+  <div class="feature-card" onclick="toggleChat()" style="cursor:pointer;">
     <div class="feature-icon">🤖</div>
     <h3>AI Assistant</h3>
-    <p>Ask questions about medicines, availability, clinic timings and more</p>
+    <p>Ask AI to book appointments, check medicines, or get health advice</p>
     <span class="feature-cta">Chat Now →</span>
-  </a>
+  </div>
 </div>
+
+{% else %}
+<!-- ═══════════ DEFAULT (NOT LOGGED IN) ═══════════ -->
+<div class="dash-hero">
+  <div class="dash-hero-text">
+    <h1>Welcome to <span>SmartClinic</span> 🏥</h1>
+    <p>AI-powered clinic & pharmacy management system</p>
+  </div>
+  <div class="dash-hero-icon">🏥</div>
+</div>
+<div class="stats-grid">
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">💊</div><div class="stat-info"><div class="stat-value">{{ total_medicines }}</div><div class="stat-label">Medicines</div></div></div>
+  <div class="stat-card cyan"><div class="stat-icon-wrap cyan">👨‍⚕️</div><div class="stat-info"><div class="stat-value">{{ total_doctors }}</div><div class="stat-label">Doctors</div></div></div>
+  <div class="stat-card green"><div class="stat-icon-wrap green">📅</div><div class="stat-info"><div class="stat-value">{{ today_appointments }}</div><div class="stat-label">Today's Appointments</div></div></div>
+  <div class="stat-card red"><div class="stat-icon-wrap red">⚠️</div><div class="stat-info"><div class="stat-value">{{ low_stock }}</div><div class="stat-label">Low Stock Alerts</div></div></div>
+</div>
+<div class="feature-grid">
+  <a href="/login" class="feature-card"><div class="feature-icon">👨‍⚕️</div><h3>Doctor Login</h3><p>Manage appointments, patients, and schedule</p><span class="feature-cta">Login →</span></a>
+  <a href="/login" class="feature-card"><div class="feature-icon">💊</div><h3>Pharmacy Login</h3><p>Manage stock, orders, and billing</p><span class="feature-cta">Login →</span></a>
+  <a href="/register" class="feature-card"><div class="feature-icon">🧑</div><h3>Patient Register</h3><p>Create account, book appointments, order medicines</p><span class="feature-cta">Register →</span></a>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}— Funding Details{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>💰 <span style="color:var(--blue-lt)">Funding & Finance</span></h1><p class="subtitle">Hospital financial overview</p></div></div>
+<div class="three-col" style="margin-bottom:1.25rem;">
+  <div class="stat-card green"><div class="stat-icon-wrap green">💰</div><div class="stat-info"><div class="stat-value">₹{{ "%.0f"|format(total_revenue) }}</div><div class="stat-label">Total Revenue</div></div></div>
+  <div class="stat-card blue"><div class="stat-icon-wrap blue">📦</div><div class="stat-info"><div class="stat-value">{{ total_orders }}</div><div class="stat-label">Total Orders</div></div></div>
+  <div class="stat-card amber"><div class="stat-icon-wrap amber">💊</div><div class="stat-info"><div class="stat-value">{{ total_medicines }}</div><div class="stat-label">Medicine Types</div></div></div>
+</div>
+<div class="two-col">
+  <div class="card">
+    <h3>Revenue by Medicine</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>Medicine</th><th>Orders</th><th>Revenue</th></tr></thead>
+        <tbody>
+          {% for item in revenue_breakdown %}
+          <tr>
+            <td style="color:var(--text);">{{ item.name }}</td>
+            <td style="color:var(--text);">{{ item.count }}</td>
+            <td style="color:var(--green);font-weight:600;">₹{{ "%.2f"|format(item.revenue) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Doctor Appointment Load</h3>
+    <div style="display:flex;flex-direction:column;gap:0.75rem;">
+      {% for d in doctor_load %}
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+          <span style="font-size:0.85rem;color:var(--text);">{{ d.name }}</span>
+          <span style="font-size:0.8rem;color:var(--text-3);">{{ d.count }} appts</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:{{ [d.count * 10, 100]|min }}%"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

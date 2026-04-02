@@ -1,125 +1,41 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SmartClinic — Register</title>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartClinic — Patient Registration</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <div class="auth-page">
-  <div class="auth-card">
+  <div class="auth-card" style="max-width:28rem;">
     <div class="auth-logo">
       <div class="auth-logo-icon">✚</div>
-      <h1>SmartClinic</h1>
-      <p>Create your account</p>
+      <h1>Create Account</h1>
+      <p>Patient registration — Doctors & Staff contact admin</p>
     </div>
-
-    {% if error %}
-    <div class="alert alert-danger">⚠️ {{ error }}</div>
-    {% endif %}
-    {% if success %}
-    <div class="alert alert-success">✅ {{ success }} <a href="/login">Login now →</a></div>
-    {% endif %}
-
-    <div class="auth-tabs" style="grid-template-columns: repeat(4,1fr);">
-      <button class="auth-tab active" onclick="setRole('doctor',this)">👨‍⚕️ Doctor</button>
-      <button class="auth-tab" onclick="setRole('pharmacy',this)">💊 Pharmacy</button>
-      <button class="auth-tab" onclick="setRole('hospital',this)">🏥 Hospital</button>
-      <button class="auth-tab" onclick="setRole('patient',this)">🧑 Patient</button>
-    </div>
-
-    <div class="role-badge" id="role-badge">👨‍⚕️ Registering as Doctor</div>
-
+    {% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
+    {% if success %}<div class="alert alert-success">✅ {{ success }} <a href="/login" style="color:var(--green);font-weight:600;">Login now →</a></div>{% endif %}
+    <div class="role-badge role-patient" style="margin-bottom:1rem;">🧑 Patient Registration</div>
     <form action="/register" method="POST" class="auth-form">
-      <input type="hidden" name="role" id="role-input" value="doctor">
-
-      <div class="form-group">
-        <label>Full Name</label>
-        <input type="text" name="full_name" required placeholder="Your full name">
-      </div>
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" name="username" required placeholder="Choose a username">
-      </div>
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" name="email" required placeholder="your@email.com">
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" required placeholder="Min 6 characters">
-      </div>
-
-      <!-- Role-specific field (changes dynamically) -->
-      <div class="form-group" id="extra-field">
-        <label>Specialization</label>
-        <input type="text" name="extra" placeholder="e.g. Cardiologist">
-      </div>
-
-      <!-- Patient-only fields (hidden by default) -->
-      <div id="patient-fields" style="display:none; flex-direction:column; gap:0.8rem;">
-        <div class="form-group">
-          <label>Age</label>
-          <input type="number" name="age" min="1" max="120" placeholder="Your age">
-        </div>
-        <div class="form-group">
-          <label>Blood Group</label>
-          <select name="blood_group">
-            <option value="">Select blood group</option>
-            <option>A+</option><option>A-</option>
-            <option>B+</option><option>B-</option>
-            <option>AB+</option><option>AB-</option>
-            <option>O+</option><option>O-</option>
+      <div class="form-grid" style="gap:0.75rem;">
+        <div class="form-group"><label>Full Name</label><input type="text" name="full_name" required placeholder="Your full name"></div>
+        <div class="form-group"><label>Username</label><input type="text" name="username" required placeholder="Choose username"></div>
+        <div class="form-group"><label>Email</label><input type="email" name="email" required placeholder="your@email.com"></div>
+        <div class="form-group"><label>Phone</label><input type="tel" name="phone" placeholder="+91 XXXXX XXXXX"></div>
+        <div class="form-group"><label>Age</label><input type="number" name="age" min="1" max="120" placeholder="Your age"></div>
+        <div class="form-group"><label>Blood Group</label>
+          <select name="blood_group"><option value="">Select</option>
+            <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+            <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="text" name="phone" placeholder="+91 XXXXX XXXXX">
-        </div>
       </div>
-
-      <button type="submit" class="btn btn-primary btn-full">Create Account →</button>
+      <div class="form-group"><label>Password</label><input type="password" name="password" required placeholder="Min 6 characters"></div>
+      <button type="submit" class="btn btn-primary btn-full">Create Patient Account →</button>
     </form>
-
-    <div class="auth-switch">
-      Already have an account? <a href="/login">Sign in</a>
-    </div>
+    <div class="auth-switch">Already have an account? <a href="/login">Sign in →</a></div>
   </div>
 </div>
-
-<script>
-const roleLabels = {
-  doctor:   '👨‍⚕️ Registering as Doctor',
-  pharmacy: '💊 Registering as Pharmacy Staff',
-  hospital: '🏥 Registering as Hospital Admin',
-  patient:  '🧑 Registering as Patient'
-};
-const extraLabels = {
-  doctor:   { label: 'Specialization',  placeholder: 'e.g. Cardiologist' },
-  pharmacy: { label: 'Pharmacy Name',   placeholder: 'e.g. Apollo Pharmacy' },
-  hospital: { label: 'Hospital Name',   placeholder: 'e.g. MSRIT Hospital' },
-  patient:  { label: 'Emergency Contact', placeholder: 'Emergency contact name' }
-};
-
-function setRole(role, btn) {
-  document.getElementById('role-input').value = role;
-  document.getElementById('role-badge').textContent = roleLabels[role];
-
-  // Update extra field label/placeholder
-  const extra = extraLabels[role];
-  const ef = document.getElementById('extra-field');
-  ef.querySelector('label').textContent = extra.label;
-  ef.querySelector('input').placeholder = extra.placeholder;
-
-  // Show/hide patient-specific fields
-  const patientFields = document.getElementById('patient-fields');
-  patientFields.style.display = role === 'patient' ? 'flex' : 'none';
-
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
-}
-</script>
 </body>
 </html>

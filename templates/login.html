@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SmartClinic — Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -15,49 +14,38 @@
       <h1>SmartClinic</h1>
       <p>Sign in to your account</p>
     </div>
-
-    {% if error %}
-    <div class="alert alert-danger">⚠️ {{ error }}</div>
-    {% endif %}
-
-    <div class="auth-tabs" style="grid-template-columns: repeat(4,1fr);">
-      <button class="auth-tab active" onclick="setRole('doctor',this)">👨‍⚕️ Doctor</button>
+    {% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="setRole('patient',this)">🧑 Patient</button>
+      <button class="auth-tab" onclick="setRole('doctor',this)">👨‍⚕️ Doctor</button>
       <button class="auth-tab" onclick="setRole('pharmacy',this)">💊 Pharmacy</button>
-      <button class="auth-tab" onclick="setRole('hospital',this)">🏥 Hospital</button>
-      <button class="auth-tab" onclick="setRole('patient',this)">🧑 Patient</button>
+      <button class="auth-tab" onclick="setRole('hospital',this)">🏥 Admin</button>
     </div>
-
-    <div class="role-badge" id="role-badge">👨‍⚕️ Logging in as Doctor</div>
-
+    <div class="role-badge role-patient" id="role-badge" style="margin-bottom:0.75rem;">🧑 Logging in as Patient</div>
     <form action="/login" method="POST" class="auth-form">
-      <input type="hidden" name="role" id="role-input" value="doctor">
-      <div class="form-group">
-        <label>Email Address</label>
-        <input type="email" name="email" required placeholder="your@email.com">
-      </div>
-      <div class="form-group">
-        <label>Password</label>
-        <input type="password" name="password" required placeholder="••••••••">
-      </div>
+      <input type="hidden" name="role" id="role-input" value="patient">
+      <div class="form-group"><label>Email Address</label><input type="email" name="email" required placeholder="your@email.com"></div>
+      <div class="form-group"><label>Password</label><input type="password" name="password" required placeholder="••••••••"></div>
       <button type="submit" class="btn btn-primary btn-full">Sign In →</button>
     </form>
-
-    <div class="auth-switch">
-      Don't have an account? <a href="/register">Create one</a>
+    <div class="alert alert-info" style="margin-top:1rem;font-size:0.78rem;">
+      <div><strong>Demo credentials:</strong><br>
+      🧑 Patient: register yourself<br>
+      👨‍⚕️ Doctor: doctor@smartclinic.com / doctor123<br>
+      💊 Pharmacy: pharmacy@smartclinic.com / pharma123<br>
+      🏥 Admin: admin@smartclinic.com / admin123</div>
     </div>
+    <div class="auth-switch">New patient? <a href="/register">Create account →</a></div>
   </div>
 </div>
-
 <script>
-const roleLabels = {
-  doctor:   '👨‍⚕️ Logging in as Doctor',
-  pharmacy: '💊 Logging in as Pharmacy Staff',
-  hospital: '🏥 Logging in as Hospital Admin',
-  patient:  '🧑 Logging in as Patient'
-};
+const labels = { patient:'🧑 Logging in as Patient', doctor:'👨‍⚕️ Logging in as Doctor', pharmacy:'💊 Logging in as Pharmacy Staff', hospital:'🏥 Logging in as Hospital Admin' };
+const roleClasses = { patient:'role-patient', doctor:'role-doctor', pharmacy:'role-pharmacy', hospital:'role-hospital' };
 function setRole(role, btn) {
   document.getElementById('role-input').value = role;
-  document.getElementById('role-badge').textContent = roleLabels[role];
+  const badge = document.getElementById('role-badge');
+  badge.textContent = labels[role];
+  badge.className = 'role-badge ' + roleClasses[role];
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
 }

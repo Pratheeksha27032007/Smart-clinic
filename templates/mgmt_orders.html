@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}— Shipments{% endblock %}
+{% block content %}
+<div class="page-header"><div><h1>🚚 <span style="color:var(--blue-lt)">Shipments</span></h1><p class="subtitle">Track and manage all medicine shipments</p></div></div>
+<div class="card">
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th>Patient</th><th>Medicine</th><th>Qty</th><th>Total</th><th>Status</th><th>Address</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td style="color:var(--text);font-weight:600;">{{ o.patient.full_name or o.patient.username }}</td>
+          <td style="color:var(--text);">{{ o.medicine.name }}</td>
+          <td>{{ o.quantity }}</td>
+          <td style="color:var(--green);">₹{{ "%.2f"|format(o.total_price) }}</td>
+          <td><span class="badge badge-{% if o.status=='delivered' %}green{% elif o.status=='shipped' %}cyan{% elif o.status=='packing' %}purple{% elif o.status=='accepted' %}blue{% else %}yellow{% endif %}">{{ o.status }}</span></td>
+          <td style="color:var(--text-3);font-size:0.78rem;max-width:10rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.address or '—' }}</td>
+          <td>
+            {% if o.status == 'shipped' %}
+            <form action="/mgmt/deliver/{{ o.id }}" method="POST" style="display:inline;"><button class="btn btn-success btn-sm">✅ Delivered</button></form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

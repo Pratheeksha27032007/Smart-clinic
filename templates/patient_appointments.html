@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}— Book Appointment{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>📅 <span style="color:var(--blue-lt)">Appointments</span></h1><p class="subtitle">Book and manage your appointments</p></div>
+</div>
+{% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
+{% if success %}<div class="alert alert-success">✅ {{ success }}</div>{% endif %}
+<div class="two-col">
+  <div class="card">
+    <h3>Book New Appointment</h3>
+    <div class="symptom-checker">
+      <label>AI Doctor Suggestion — Enter symptoms</label>
+      <div style="display:flex;gap:0.5rem;margin-top:0.4rem;">
+        <input type="text" id="sym-input" placeholder="e.g. fever, headache, cough" style="flex:1;">
+        <button class="btn btn-cyan btn-sm" onclick="suggestDoc()">🤖 Suggest</button>
+      </div>
+      <div id="ai-sug" class="ai-box" style="display:none;margin-top:0.65rem;"></div>
+    </div>
+    <form action="/patient/book" method="POST" class="appt-form">
+      <div class="form-group">
+        <label>Symptoms</label>
+        <textarea name="symptoms" rows="2" placeholder="Describe your symptoms"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Select Doctor</label>
+        <select name="doctor_id" id="doc-sel" required>
+          <option value="">-- Choose Doctor --</option>
+          {% for d in doctors %}
+          <option value="{{ d.id }}">{{ d.name }} — {{ d.specialty }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" name="appointment_date" required min="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Time Slot</label>
+        <select name="appointment_time" required>
+          <option value="">-- Select Time --</option>
+          {% for h in range(9,18) %}
+          <option value="{{ '%02d:00'|format(h) }}">{{ '%02d:00'|format(h) }}</option>
+          <option value="{{ '%02d:30'|format(h) }}">{{ '%02d:30'|format(h) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Book Appointment</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>My Appointments</h3>
+    {% if appointments %}
+    <div class="appt-list">
+      {% for a in appointments %}
+      <div class="appt-item status-{{ a.status }}">
+        <div class="appt-header">
+          <strong style="color:var(--text);">{{ a.doctor.name }}</strong>
+          <span class="badge badge-{% if a.status=='accepted' %}green{% elif a.status=='declined' %}red{% else %}yellow{% endif %}">{{ a.status }}</span>
+        </div>
+        <div class="appt-details">
+          <span>📅 {{ a.appointment_date }} at {{ a.appointment_time }}</span>
+          <span>🏥 {{ a.doctor.specialty }}</span>
+        </div>
+        {% if a.status == 'accepted' %}
+        <a href="/messages?to={{ a.doctor.user_id }}" class="btn btn-sm btn-cyan" style="margin-top:0.5rem;">💬 Message Doctor</a>
+        {% endif %}
+        <form action="/patient/cancel/{{ a.id }}" method="POST" onsubmit="return confirm('Cancel this appointment?')" style="display:inline;margin-top:0.5rem;margin-left:0.4rem;">
+          <button class="btn btn-danger btn-sm">Cancel</button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No appointments yet. Book your first one!</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function suggestDoc() {
+  const sym = document.getElementById('sym-input').value.trim();
+  if (!sym) return;
+  const btn = event.target; btn.textContent='⏳'; btn.disabled=true;
+  const res = await fetch('/api/suggest-doctor',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symptoms:sym})});
+  const data = await res.json();
+  btn.textContent='🤖 Suggest'; btn.disabled=false;
+  const box = document.getElementById('ai-sug'); box.style.display='block';
+  const c = data.urgency==='High'?'red':data.urgency==='Medium'?'yellow':'green';
+  box.innerHTML=`<div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;"><span class="badge badge-${c}">${data.urgency||'Medium'} Urgency</span></div><strong style="color:var(--text);">${data.doctor_name}</strong> — ${data.specialty||''}<br><small style="color:var(--text-3);">${data.reason||''}</small>`;
+  const sel = document.getElementById('doc-sel');
+  for (let o of sel.options) { if (o.text.includes(data.doctor_name?.split(' ').pop()||'')) { o.selected=true; break; } }
+}
+document.querySelector('input[type="date"]').min = new Date().toISOString().split('T')[0];
+</script>
+{% endblock %}
