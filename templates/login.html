@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartClinic — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">✚</div>
+      <h1>SmartClinic</h1>
+      <p>Sign in to your account</p>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">⚠️ {{ error }}</div>
+    {% endif %}
+
+    <div class="auth-tabs" style="grid-template-columns: repeat(4,1fr);">
+      <button class="auth-tab active" onclick="setRole('doctor',this)">👨‍⚕️ Doctor</button>
+      <button class="auth-tab" onclick="setRole('pharmacy',this)">💊 Pharmacy</button>
+      <button class="auth-tab" onclick="setRole('hospital',this)">🏥 Hospital</button>
+      <button class="auth-tab" onclick="setRole('patient',this)">🧑 Patient</button>
+    </div>
+
+    <div class="role-badge" id="role-badge">👨‍⚕️ Logging in as Doctor</div>
+
+    <form action="/login" method="POST" class="auth-form">
+      <input type="hidden" name="role" id="role-input" value="doctor">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" name="email" required placeholder="your@email.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Sign In →</button>
+    </form>
+
+    <div class="auth-switch">
+      Don't have an account? <a href="/register">Create one</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const roleLabels = {
+  doctor:   '👨‍⚕️ Logging in as Doctor',
+  pharmacy: '💊 Logging in as Pharmacy Staff',
+  hospital: '🏥 Logging in as Hospital Admin',
+  patient:  '🧑 Logging in as Patient'
+};
+function setRole(role, btn) {
+  document.getElementById('role-input').value = role;
+  document.getElementById('role-badge').textContent = roleLabels[role];
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>

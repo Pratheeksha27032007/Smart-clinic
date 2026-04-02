@@ -3,3 +3,4 @@ flask-sqlalchemy
 groq
 python-dotenv
 gunicorn
+werkzeug
