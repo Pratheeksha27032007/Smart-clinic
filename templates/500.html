@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}— Server Error{% endblock %}
+{% block content %}
+<div style="text-align:center;padding:4rem 1.5rem;min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="font-size:4rem;font-weight:700;color:var(--red);margin-bottom:1rem;">500</div>
+  <h1 style="font-size:2rem;color:var(--text);margin-bottom:0.5rem;">Server Error</h1>
+  <p style="color:var(--text-3);margin-bottom:2rem;font-size:1.05rem;">Something went wrong on our end. Please try again later.</p>
+  <div style="display:flex;gap:0.75rem;flex-wrap:wrap;justify-content:center;">
+    <a href="/" class="btn btn-primary">← Back to Dashboard</a>
+    <a href="/" class="btn btn-cyan">Home</a>
+  </div>
+</div>
+{% endblock %}
