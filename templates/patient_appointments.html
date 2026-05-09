@@ -90,7 +90,7 @@ async function suggestDoc() {
   const c = data.urgency==='High'?'red':data.urgency==='Medium'?'yellow':'green';
   box.innerHTML=`<div style="display:flex;gap:0.5rem;margin-bottom:0.4rem;align-items:center;"><span class="badge badge-${c}">${data.urgency||'Medium'} Urgency</span></div><strong style="color:var(--text);">${data.doctor_name}</strong> — ${data.specialty||''}<br><small style="color:var(--text-3);">${data.reason||''}</small>`;
   const sel = document.getElementById('doc-sel');
-  for (let o of sel.options) { if (o.text.includes(data.doctor_name?.split(' ').pop()||'')) { o.selected=true; break; } }
+  for (let o of sel.options) { if (o.text.includes(data.doctor_name ?.split(' ').pop()||'')) { o.selected=true; break; } }
 }
 document.querySelector('input[type="date"]').min = new Date().toISOString().split('T')[0];
 </script>

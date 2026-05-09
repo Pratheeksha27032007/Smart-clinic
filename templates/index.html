@@ -5,7 +5,7 @@
 {% if role == 'doctor' %}
 <div class="dash-hero">
   <div class="dash-hero-text">
-    <h1>Good {{ time_of_day }}, <span>Dr. {{ session.get('full_name','') }}</span></h1>
+    <h1>Good {{ time_of_day }}, <span> {{ session.get('full_name','') }}</span></h1>
     <p>Here is your clinic overview for today</p>
   </div>
   <div class="dash-hero-icon">+</div>
