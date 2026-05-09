@@ -13,6 +13,55 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'smartclinic-secret-2024')
 db.init_app(app)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# ── VALIDATION HELPERS ──────────────────────────────────
+def validate_password(pwd):
+    """Ensure strong password"""
+    if len(pwd) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r'[A-Z]', pwd):
+        return False, "Password must contain uppercase letter"
+    if not re.search(r'[0-9]', pwd):
+        return False, "Password must contain number"
+    if not re.search(r'[!@#$%^&*]', pwd):
+        return False, "Password must contain special character (!@#$%^&*)"
+    return True, ""
+
+def validate_email(email):
+    """Validate email format"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+def validate_phone(phone):
+    """Validate phone format"""
+    phone = re.sub(r'\D', '', phone)
+    return len(phone) >= 10
+
+def validate_appointment_date(date_str):
+    """Ensure appointment is in future"""
+    try:
+        appt_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        if appt_date < date.today():
+            return False, "Appointment date must be in the future"
+        if appt_date > date.today() + timedelta(days=90):
+            return False, "Cannot book more than 90 days in advance"
+        return True, ""
+    except:
+        return False, "Invalid date format"
+
+def log_activity(user_id, action, details=None, ip=None):
+    """Log user actions for audit trail"""
+    try:
+        log = ActivityLog(
+            user_id=user_id,
+            action=action,
+            details=details,
+            ip_address=ip or request.remote_addr
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Error logging activity: {e}")
+
 def ai(prompt):
     try:
         r = client.chat.completions.create(
@@ -31,9 +80,9 @@ def time_of_day():
 def seed_data():
     # Seed preset accounts for doctor, pharmacy, hospital
     presets = [
-        {"email":"doctor@smartclinic.com","username":"doctor1","role":"doctor","full_name":"Dr. Priya Sharma","specialization":"General Physician","password":"doctor123"},
-        {"email":"pharmacy@smartclinic.com","username":"pharmacy1","role":"pharmacy","full_name":"Pharmacy Staff","specialization":"Pharmacy","password":"pharma123"},
-        {"email":"admin@smartclinic.com","username":"admin1","role":"hospital","full_name":"Hospital Admin","specialization":"Management","password":"admin123"},
+        {"email":"doctor@smartclinic.com","username":"doctor1","role":"doctor","full_name":"Dr. Priya Sharma","specialization":"General Physician","password":"Doctor@123"},
+        {"email":"pharmacy@smartclinic.com","username":"pharmacy1","role":"pharmacy","full_name":"Pharmacy Staff","specialization":"Pharmacy","password":"Pharma@123"},
+        {"email":"admin@smartclinic.com","username":"admin1","role":"hospital","full_name":"Hospital Admin","specialization":"Management","password":"Admin@123"},
     ]
     for p in presets:
         if not User.query.filter_by(email=p['email']).first():
