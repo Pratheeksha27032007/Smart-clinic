@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}— Health Profile{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>🏥 <span style="color:var(--blue-lt)">Health Profile</span></h1><p class="subtitle">Manage your medical information</p></div>
+</div>
+
+{% if success %}<div class="alert alert-success">✅ {{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
+
+<div class="two-col">
+  <div class="card">
+    <h3>Personal Information</h3>
+    <div style="display:flex;flex-direction:column;gap:0.8rem;">
+      <div><strong style="color:var(--text);">{{ user.full_name or user.username }}</strong></div>
+      <div><span style="color:var(--text-3);">Email:</span> {{ user.email }}</div>
+      <div><span style="color:var(--text-3);">Phone:</span> {{ user.phone or '—' }}</div>
+      <div><span style="color:var(--text-3);">Age:</span> {{ user.age or '—' }}</div>
+      <div><span style="color:var(--text-3);">Blood Group:</span> <strong style="color:var(--red);">{{ user.blood_group or '—' }}</strong></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Emergency Contact</h3>
+    <div style="display:flex;flex-direction:column;gap:0.8rem;padding:0.75rem;background:var(--bg-dark);border-radius:var(--r);border-left:3px solid var(--red);">
+      <div style="color:var(--text-3);font-size:0.85rem;">Keep this updated — used only in emergencies</div>
+      {% if profile %}
+      <div><strong style="color:var(--text);">{{ profile.emergency_contact or 'Not set' }}</strong></div>
+      <div><span style="color:var(--text-3);">{{ profile.emergency_phone or 'No phone' }}</span></div>
+      {% else %}
+      <div style="color:var(--text-3);">No emergency contact set</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem;">
+  <h3>Edit Medical Information</h3>
+  <form action="/patient/profile" method="POST" class="form-grid">
+    <div class="form-group">
+      <label>Allergies</label>
+      <textarea name="allergies" rows="3" placeholder="e.g. Penicillin, Peanuts, Shellfish">{{ profile.allergies or '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Chronic Conditions</label>
+      <textarea name="chronic_conditions" rows="3" placeholder="e.g. Diabetes, Hypertension, Asthma">{{ profile.chronic_conditions or '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label>Emergency Contact Name</label>
+      <input type="text" name="emergency_contact" placeholder="Full name" value="{{ profile.emergency_contact or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label>Emergency Phone</label>
+      <input type="tel" name="emergency_phone" placeholder="+91 XXXXX XXXXX" value="{{ profile.emergency_phone or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label>Insurance Provider</label>
+      <input type="text" name="insurance_provider" placeholder="e.g. HDFC, Aetna" value="{{ profile.insurance_provider or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label>Insurance ID</label>
+      <input type="text" name="insurance_id" placeholder="Your policy ID" value="{{ profile.insurance_id or '' }}">
+    </div>
+
+    <div style="grid-column:1/-1;">
+      <button type="submit" class="btn btn-primary">💾 Save Profile</button>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:1.25rem;">
+  <h3>Medical Notes</h3>
+  <div style="background:var(--bg-dark);padding:0.75rem;border-radius:var(--r);border:1px solid var(--border);font-size:0.85rem;color:var(--text-2);">
+    {% if profile and profile.medical_notes %}
+    {{ profile.medical_notes }}
+    {% else %}
+    <span style="color:var(--text-3);">No notes from doctors yet. They will appear here after consultations.</span>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

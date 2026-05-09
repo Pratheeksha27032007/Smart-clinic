@@ -1,6 +1,25 @@
-flask
-flask-sqlalchemy
-groq
-python-dotenv
-gunicorn
-werkzeug
+flask==3.0.0
+flask-sqlalchemy==3.1.1
+groq==0.4.2
+python-dotenv==1.0.0
+gunicorn==21.2.0
+werkzeug==3.0.1
+requests==2.31.0
+
+# Email notifications (optional but recommended)
+flask-mail==0.9.1
+
+# Security enhancements
+cryptography==41.0.7
+
+# Database backup/migration
+alembic==1.13.1
+
+# Rate limiting
+flask-limiter==3.5.0
+
+# Better error tracking (optional)
+sentry-sdk==1.38.0
+
+# API documentation (optional)
+flasgger==0.9.7.1

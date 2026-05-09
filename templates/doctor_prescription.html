@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}— Prescriptions{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>💊 <span style="color:var(--blue-lt)">Prescriptions</span></h1><p class="subtitle">Create and manage patient prescriptions</p></div>
+  <button class="btn btn-primary" onclick="document.getElementById('create-form').style.display=document.getElementById('create-form').style.display==='none'?'block':'none'">+ New Prescription</button>
+</div>
+
+<div id="create-form" class="card" style="display:none;margin-bottom:1.5rem;">
+  <h3>Create Prescription</h3>
+  <form id="prescription-form" style="display:flex;flex-direction:column;gap:1rem;">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Patient</label>
+        <select name="patient_id" required>
+          <option value="">-- Select Patient --</option>
+          {% for p in patients %}
+          <option value="{{ p.id }}">{{ p.full_name or p.username }} ({{ p.email }})</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
+      <label style="display:block;font-weight:600;margin-bottom:0.75rem;color:var(--text);">Medicines</label>
+      <div id="medicines-container" style="display:flex;flex-direction:column;gap:0.75rem;">
+        <div class="medicine-entry" style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:0.5rem;align-items:end;">
+          <select class="medicine-select" required>
+            <option value="">-- Select Medicine --</option>
+            {% for m in medicines %}
+            <option value="{{ m.id }}" data-name="{{ m.name }}" data-price="{{ m.unit_price }}">{{ m.name }} (₹{{ m.unit_price }})</option>
+            {% endfor %}
+          </select>
+          <input type="text" class="dosage" placeholder="e.g. 500mg" required>
+          <input type="text" class="frequency" placeholder="e.g. 2x daily" required>
+          <input type="number" class="duration" placeholder="Days" min="1" max="180" required>
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeMedicine(this)">Remove</button>
+        </div>
+      </div>
+      <button type="button" class="btn btn-cyan btn-sm" onclick="addMedicine()" style="margin-top:0.75rem;">+ Add Medicine</button>
+    </div>
+
+    <div class="form-group">
+      <label>Instructions for Patient</label>
+      <textarea name="instructions" rows="4" placeholder="Special instructions (e.g., take with food, avoid alcohol)"></textarea>
+    </div>
+
+    <div style="display:flex;gap:0.5rem;">
+      <button type="submit" class="btn btn-primary">💾 Create Prescription</button>
+      <button type="button" class="btn" onclick="document.getElementById('create-form').style.display='none'">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Recent Prescriptions</h3>
+  {% if prescriptions %}
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    {% for p in prescriptions %}
+    <div style="background:var(--bg-card2);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+        <div>
+          <strong style="color:var(--text);">{{ p.patient.full_name or p.patient.username }}</strong>
+          <div style="font-size:0.8rem;color:var(--text-3);">{{ p.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+        </div>
+        <span class="badge badge-{% if p.status=='pending' %}yellow{% elif p.status=='dispensed' %}green{% else %}blue{% endif %}">{{ p.status }}</span>
+      </div>
+
+      <div style="margin-bottom:0.75rem;">
+        <strong style="color:var(--text-2);">Medicines:</strong>
+        <ul style="margin:0.5rem 0 0 1.5rem;color:var(--text-2);font-size:0.9rem;">
+          {% for med in p.medicines %}
+          <li>{{ med.get('medicine_id') or 'Unknown' }} - {{ med.get('dosage') }} {{ med.get('frequency') }} for {{ med.get('days') }} days</li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      {% if p.instructions %}
+      <div style="padding:0.75rem;background:var(--bg-dark);border-radius:var(--r-sm);border-left:3px solid var(--cyan);font-size:0.85rem;">
+        <strong style="color:var(--text-2);">Instructions:</strong> {{ p.instructions }}
+      </div>
+      {% endif %}
+
+      <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
+        {% if p.status == 'pending' %}
+        <button class="btn btn-success btn-sm" onclick="dispensePrescription({{ p.id }})">✅ Mark Dispensed</button>
+        {% endif %}
+        <a href="?print={{ p.id }}" class="btn btn-cyan btn-sm" target="_blank">🖨️ Print</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No prescriptions created yet</p>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addMedicine() {
+  const container = document.getElementById('medicines-container');
+  const entry = document.createElement('div');
+  entry.className = 'medicine-entry';
+  entry.style.display = 'grid';
+  entry.style.gridTemplateColumns = '2fr 1fr 1fr auto';
+  entry.style.gap = '0.5rem';
+  entry.style.alignItems = 'end';
+  entry.innerHTML = `
+    <select class="medicine-select" required>
+      <option value="">-- Select Medicine --</option>
+      {% for m in medicines %}
+      <option value="{{ m.id }}" data-name="{{ m.name }}">{{ m.name }} (₹{{ m.unit_price }})</option>
+      {% endfor %}
+    </select>
+    <input type="text" class="dosage" placeholder="e.g. 500mg" required>
+    <input type="text" class="frequency" placeholder="e.g. 2x daily" required>
+    <input type="number" class="duration" placeholder="Days" min="1" max="180" required>
+    <button type="button" class="btn btn-danger btn-sm" onclick="removeMedicine(this)">Remove</button>
+  `;
+  container.appendChild(entry);
+}
+
+function removeMedicine(btn) {
+  btn.closest('.medicine-entry').remove();
+}
+
+document.getElementById('prescription-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const entries = document.querySelectorAll('.medicine-entry');
+  const medicines = [];
+  
+  entries.forEach(entry => {
+    const select = entry.querySelector('.medicine-select');
+    const dosage = entry.querySelector('.dosage').value;
+    const frequency = entry.querySelector('.frequency').value;
+    const duration = entry.querySelector('.duration').value;
+    
+    if (select.value) {
+      medicines.push({
+        medicine_id: parseInt(select.value),
+        medicine_name: select.options[select.selectedIndex].text,
+        dosage: dosage,
+        frequency: frequency,
+        days: parseInt(duration)
+      });
+    }
+  });
+  
+  if (medicines.length === 0) {
+    alert('Please add at least one medicine');
+    return;
+  }
+  
+  const formData = new FormData(document.getElementById('prescription-form'));
+  formData.set('medicines', JSON.stringify(medicines));
+  
+  try {
+    const res = await fetch('/doctor/prescriptions', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await res.json();
+    if (res.ok) {
+      alert('Prescription created!');
+      location.reload();
+    } else {
+      alert('Error: ' + data.error);
+    }
+  } catch (err) {
+    alert('Failed to create prescription');
+  }
+});
+
+function dispensePrescription(id) {
+  if (confirm('Mark this prescription as dispensed?')) {
+    // Add endpoint to handle this
+    alert('Feature coming soon');
+  }
+}
+</script>
+{% endblock %}
