@@ -16,8 +16,7 @@
   <div class="nav-links">
     {% if session.get('role') == 'doctor' %}
       <a href="/" class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
-      <a href="/doctor/appointments" class="nav-link {% if '/doctor/appointments' in request.path %}active{% endif %}">Appointments</a>
-      <a href="/doctor/prescriptions" class="nav-link {% if '/doctor/prescriptions' in request.path %}active{% endif %}">Prescriptions</a>
+      <a href="/doctor/appointments" class="nav-link {% if '/doctor' in request.path %}active{% endif %}">Appointments</a>
       <a href="/messages" class="nav-link {% if '/messages' in request.path %}active{% endif %}">Messages</a>
     {% elif session.get('role') == 'pharmacy' %}
       <a href="/" class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
@@ -30,13 +29,14 @@
       <a href="/mgmt/funding" class="nav-link {% if '/mgmt/funding' in request.path %}active{% endif %}">Funding</a>
     {% elif session.get('role') == 'patient' %}
       <a href="/" class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
-      <a href="/patient/profile" class="nav-link {% if '/patient/profile' in request.path %}active{% endif %}">Profile</a>
       <a href="/patient/appointments" class="nav-link {% if '/patient/appointments' in request.path %}active{% endif %}">Appointments</a>
       <a href="/patient/medicines" class="nav-link {% if '/patient/medicines' in request.path %}active{% endif %}">Medicines</a>
-      <a href="/patient/orders" class="nav-link {% if '/patient/orders' in request.path %}active{% endif %}">Orders</a>
+      <a href="/patient/orders" class="nav-link {% if '/patient/orders' in request.path %}active{% endif %}">My Orders</a>
       <a href="/messages" class="nav-link {% if '/messages' in request.path %}active{% endif %}">Messages</a>
     {% else %}
       <a href="/" class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
+      <a href="/stock" class="nav-link {% if '/stock' in request.path %}active{% endif %}">Medicines</a>
+      <a href="/appointments" class="nav-link {% if '/appointments' in request.path %}active{% endif %}">Appointments</a>
     {% endif %}
   </div>
   {% if session.get('user_id') %}
@@ -60,7 +60,6 @@
   {% if session.get('role') == 'doctor' %}
     <a href="/" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Dashboard</a>
     <a href="/doctor/appointments" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Appointments</a>
-    <a href="/doctor/prescriptions" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Prescriptions</a>
     <a href="/messages" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Messages</a>
   {% elif session.get('role') == 'pharmacy' %}
     <a href="/" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Dashboard</a>
@@ -73,13 +72,14 @@
     <a href="/mgmt/funding" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Funding</a>
   {% elif session.get('role') == 'patient' %}
     <a href="/" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Dashboard</a>
-    <a href="/patient/profile" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Profile</a>
     <a href="/patient/appointments" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Appointments</a>
     <a href="/patient/medicines" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Medicines</a>
-    <a href="/patient/orders" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Orders</a>
+    <a href="/patient/orders" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">My Orders</a>
     <a href="/messages" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Messages</a>
   {% else %}
     <a href="/" class="nav-link">Dashboard</a>
+    <a href="/stock" class="nav-link">Medicines</a>
+    <a href="/appointments" class="nav-link">Appointments</a>
   {% endif %}
   {% if session.get('user_id') %}
   <a href="/logout" class="nav-link" style="color:var(--red);">Logout</a>
