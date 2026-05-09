@@ -83,7 +83,7 @@
 
       <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
         {% if p.status == 'pending' %}
-        <button class="btn btn-success btn-sm" onclick="dispensePrescription({{ p.id }})">✅ Mark Dispensed</button>
+        <button class="btn btn-success btn-sm" onclick="dispensePrescription( p.id )">✅ Mark Dispensed</button>
         {% endif %}
         <a href="?print={{ p.id }}" class="btn btn-cyan btn-sm" target="_blank">🖨️ Print</a>
       </div>

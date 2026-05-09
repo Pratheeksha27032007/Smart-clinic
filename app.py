@@ -189,48 +189,37 @@ def login():
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'POST':
-        username = request.form.get('username','').strip()
         email = request.form.get('email','').strip()
+        username = request.form.get('username','').strip()
         pwd = request.form.get('password','')
         full_name = request.form.get('full_name','').strip()
         phone = request.form.get('phone','').strip()
         age = request.form.get('age','')
-        blood = request.form.get('blood_group','').strip()
+        blood_group = request.form.get('blood_group','')
         
-        errors = []
-        
-        if not username or len(username) < 3:
-            errors.append('Username must be at least 3 characters')
+        # Validations
+        if not all([email, username, pwd, full_name]):
+            return render_template('register.html', error='All fields required.')
         
         if not validate_email(email):
-            errors.append('Invalid email format')
+            return render_template('register.html', error='Invalid email format.')
         
         if User.query.filter_by(email=email).first():
-            errors.append('Email already registered')
+            return render_template('register.html', error='Email already registered.')
         
         if User.query.filter_by(username=username).first():
-            errors.append('Username already taken')
+            return render_template('register.html', error='Username already taken.')
         
-        valid_pwd, pwd_msg = validate_password(pwd)
-        if not valid_pwd:
-            errors.append(pwd_msg)
+        valid, msg = validate_password(pwd)
+        if not valid:
+            return render_template('register.html', error=msg)
         
         if phone and not validate_phone(phone):
-            errors.append('Invalid phone number')
-        
-        if errors:
-            return render_template('register.html', error=' | '.join(errors))
+            return render_template('register.html', error='Invalid phone number.')
         
         try:
-            u = User(
-                username=username,
-                email=email,
-                role='patient',
-                full_name=full_name,
-                phone=phone,
-                age=int(age) if age else None,
-                blood_group=blood
-            )
+            u = User(username=username, email=email, role='patient', full_name=full_name,
+                    phone=phone, age=int(age) if age else None, blood_group=blood_group or None)
             u.set_password(pwd)
             db.session.add(u)
             db.session.flush()
@@ -239,8 +228,8 @@ def register():
             db.session.add(profile)
             db.session.commit()
             
-            log_activity(u.id, "PATIENT_REGISTRATION")
-            return render_template('register.html', success='Account created! You can now login.')
+            log_activity(u.id, "REGISTER")
+            return render_template('register.html', success='Account created! Please log in.')
         except Exception as e:
             db.session.rollback()
             logger.error(f"Registration error: {e}")
@@ -251,390 +240,542 @@ def register():
 @app.route('/logout')
 def logout():
     user_id = session.get('user_id')
-    log_activity(user_id, "LOGOUT")
+    if user_id:
+        log_activity(user_id, "LOGOUT")
     session.clear()
     return redirect(url_for('login'))
 
 # ── MAIN DASHBOARD ──────────────────────────────────────
 @app.route('/')
 def index():
-    role = session.get('role','')
-    uid = session.get('user_id')
-    tod = time_of_day()
-    today = date.today().isoformat()
-
+    role = session.get('role', 'guest')
+    today = date.today()
+    
     if role == 'doctor':
-        try:
-            doc = Doctor.query.filter_by(user_id=uid).first()
-            doc_id = doc.id if doc else None
-            todays = Appointment.query.filter_by(doctor_id=doc_id, appointment_date=today).all() if doc_id else []
-            pending = Appointment.query.filter_by(doctor_id=doc_id, status='pending').count() if doc_id else 0
-            accepted = Appointment.query.filter_by(doctor_id=doc_id, status='accepted', appointment_date=today).count() if doc_id else 0
-            unread = Message.query.filter_by(receiver_id=uid, is_read=False).count()
-            msgs = Message.query.filter((Message.sender_id==uid)|(Message.receiver_id==uid)).order_by(Message.created_at.desc()).limit(5).all()
-            
-            return render_template('index.html', role=role, time_of_day=tod,
-                today_appts=len(todays), pending_appts=pending, accepted_appts=accepted,
-                unread_msgs=unread, todays_list=todays, recent_msgs=msgs)
-        except Exception as e:
-            logger.error(f"Doctor dashboard error: {e}")
-            return render_template('index.html', role=role, error="Error loading dashboard")
-
+        user_id = session.get('user_id')
+        doctor = Doctor.query.filter_by(user_id=user_id).first()
+        
+        today_appts = Appointment.query.filter(
+            Appointment.doctor_id == doctor.id if doctor else None,
+            Appointment.appointment_date == str(today)
+        ).all() if doctor else []
+        
+        pending_appts = len([a for a in today_appts if a.status == 'pending'])
+        accepted_appts = len([a for a in today_appts if a.status == 'accepted'])
+        
+        unread_msgs = Message.query.filter_by(receiver_id=user_id, is_read=False).count()
+        
+        return render_template('index.html', 
+            role='doctor',
+            time_of_day=time_of_day(),
+            today_appts=len(today_appts),
+            pending_appts=pending_appts,
+            accepted_appts=accepted_appts,
+            unread_msgs=unread_msgs,
+            todays_list=today_appts,
+            recent_msgs=Message.query.filter(
+                (Message.sender_id==user_id)|(Message.receiver_id==user_id)
+            ).order_by(Message.created_at.desc()).limit(5).all()
+        )
+    
     elif role == 'pharmacy':
-        try:
-            meds = Medicine.query.all()
-            low = [m for m in meds if m.quantity <= m.reorder_level]
-            pend_ord = Order.query.filter_by(status='pending').all()
-            delivered = Order.query.filter_by(status='delivered').count()
-            
-            return render_template('index.html', role=role, time_of_day=tod,
-                total_meds=len(meds), low_stock=len(low), pending_orders=len(pend_ord),
-                delivered_today=delivered, orders_list=pend_ord[:5], low_stock_list=low[:5])
-        except Exception as e:
-            logger.error(f"Pharmacy dashboard error: {e}")
-            return render_template('index.html', role=role, error="Error loading dashboard")
-
+        total_meds = Medicine.query.count()
+        low_stock = len(Medicine.query.filter(Medicine.quantity <= Medicine.reorder_level).all())
+        pending_orders = Order.query.filter_by(status='pending').count()
+        delivered_today = Order.query.filter(
+            Order.status=='delivered',
+            Order.delivered_at >= datetime.combine(today, datetime.min.time())
+        ).count()
+        
+        return render_template('index.html',
+            role='pharmacy',
+            total_meds=total_meds,
+            low_stock=low_stock,
+            pending_orders=pending_orders,
+            delivered_today=delivered_today,
+            orders_list=Order.query.filter_by(status='pending').limit(5).all(),
+            low_stock_list=Medicine.query.filter(Medicine.quantity <= Medicine.reorder_level).limit(5).all()
+        )
+    
     elif role == 'hospital':
-        try:
-            docs = Doctor.query.all()
-            patients = User.query.filter_by(role='patient').count()
-            orders = Order.query.count()
-            shipping = Order.query.filter_by(status='shipped').count()
-            recent = Order.query.order_by(Order.created_at.desc()).limit(5).all()
-            
-            return render_template('index.html', role=role, time_of_day=tod,
-                total_doctors=len(docs), total_patients=patients, total_orders=orders,
-                shipping_orders=shipping, doctors_list=docs, recent_shipments=recent)
-        except Exception as e:
-            logger.error(f"Hospital dashboard error: {e}")
-            return render_template('index.html', role=role, error="Error loading dashboard")
-
+        total_doctors = Doctor.query.count()
+        total_patients = User.query.filter_by(role='patient').count()
+        total_orders = Order.query.count()
+        shipping_orders = Order.query.filter(Order.status.in_(['packing', 'shipped'])).count()
+        
+        return render_template('index.html',
+            role='hospital',
+            total_doctors=total_doctors,
+            total_patients=total_patients,
+            total_orders=total_orders,
+            shipping_orders=shipping_orders,
+            doctors_list=Doctor.query.limit(10).all(),
+            recent_shipments=Order.query.order_by(Order.created_at.desc()).limit(5).all()
+        )
+    
     elif role == 'patient':
-        try:
-            my_appts = Appointment.query.filter_by(patient_user_id=uid).count()
-            my_orders = Order.query.filter_by(patient_id=uid).count()
-            accepted = Appointment.query.filter_by(patient_user_id=uid, status='accepted').count()
-            in_transit = Order.query.filter_by(patient_id=uid, status='shipped').count()
-            
-            return render_template('index.html', role=role, time_of_day=tod,
-                my_appts=my_appts, my_orders=my_orders, accepted=accepted, in_transit=in_transit)
-        except Exception as e:
-            logger.error(f"Patient dashboard error: {e}")
-            return render_template('index.html', role=role, error="Error loading dashboard")
-
-    return render_template('index.html', role=role, time_of_day=tod,
-        total_medicines=Medicine.query.count(),
-        low_stock=Medicine.query.filter(Medicine.quantity<=Medicine.reorder_level).count(),
-        total_doctors=Doctor.query.count(),
-        today_appointments=Appointment.query.filter_by(appointment_date=today).count())
-
-# ── PATIENT PROFILE ─────────────────────────────────────
-@app.route('/patient/profile', methods=['GET','POST'])
-@require_role('patient')
-def patient_profile():
-    uid = session.get('user_id')
-    user = User.query.get(uid)
-    profile = PatientProfile.query.filter_by(user_id=uid).first()
+        user_id = session.get('user_id')
+        my_appts = Appointment.query.filter_by(patient_user_id=user_id).count()
+        my_orders = Order.query.filter_by(patient_id=user_id).count()
+        accepted = Appointment.query.filter_by(patient_user_id=user_id, status='accepted').count()
+        in_transit = Order.query.filter(
+            Order.patient_id==user_id,
+            Order.status.in_(['packing','shipped'])
+        ).count()
+        
+        return render_template('index.html',
+            role='patient',
+            my_appts=my_appts,
+            my_orders=my_orders,
+            accepted=accepted,
+            in_transit=in_transit
+        )
     
-    if request.method == 'POST':
-        try:
-            if not profile:
-                profile = PatientProfile(user_id=uid)
-            
-            profile.allergies = request.form.get('allergies', '').strip()
-            profile.chronic_conditions = request.form.get('chronic_conditions', '').strip()
-            profile.emergency_contact = request.form.get('emergency_contact', '').strip()
-            profile.emergency_phone = request.form.get('emergency_phone', '').strip()
-            profile.insurance_provider = request.form.get('insurance_provider', '').strip()
-            profile.insurance_id = request.form.get('insurance_id', '').strip()
-            
-            db.session.add(profile)
-            db.session.commit()
-            
-            log_activity(uid, "PROFILE_UPDATE")
-            return render_template('patient_profile.html', user=user, profile=profile, success='Profile updated!')
-        except Exception as e:
-            db.session.rollback()
-            logger.error(f"Profile update error: {e}")
-            return render_template('patient_profile.html', user=user, profile=profile, error='Update failed')
-    
-    return render_template('patient_profile.html', user=user, profile=profile)
+    else:
+        # Guest/not logged in
+        return render_template('index.html',
+            role='guest',
+            total_medicines=Medicine.query.count(),
+            total_doctors=Doctor.query.count(),
+            today_appointments=Appointment.query.filter(Appointment.appointment_date==str(today)).count(),
+            low_stock=len(Medicine.query.filter(Medicine.quantity <= Medicine.reorder_level).all())
+        )
 
-# ── PATIENT APPOINTMENTS ────────────────────────────────
+# ── PATIENT ROUTES ──────────────────────────────────────
 @app.route('/patient/appointments')
+@require_login
 @require_role('patient')
 def patient_appointments():
-    uid = session.get('user_id')
-    appts = Appointment.query.filter_by(patient_user_id=uid).order_by(Appointment.appointment_date.desc()).all()
-    docs = Doctor.query.all()
-    return render_template('patient_appointments.html', 
-        appointments=appts, doctors=docs, today=date.today().isoformat())
+    user_id = session.get('user_id')
+    today = date.today().isoformat()
+    doctors = Doctor.query.all()
+    appointments = Appointment.query.filter_by(patient_user_id=user_id).all()
+    
+    return render_template('patient_appointments.html',
+        doctors=doctors,
+        appointments=appointments,
+        today=today
+    )
 
 @app.route('/patient/book', methods=['POST'])
+@require_login
 @require_role('patient')
 def patient_book():
-    uid = session.get('user_id')
-    user = User.query.get(uid)
-    data = request.form
+    user_id = session.get('user_id')
+    doctor_id = request.form.get('doctor_id')
+    appt_date = request.form.get('appointment_date')
+    appt_time = request.form.get('appointment_time')
+    symptoms = request.form.get('symptoms','').strip()
+    
+    valid, msg = validate_appointment_date(appt_date)
+    if not valid:
+        return redirect(url_for('patient_appointments', error=msg))
     
     try:
-        doctor_id = int(data.get('doctor_id'))
-        appt_date = data.get('appointment_date')
-        appt_time = data.get('appointment_time')
-        symptoms = data.get('symptoms', '').strip()
-        
-        valid, msg = validate_appointment_date(appt_date)
-        if not valid:
-            return redirect(url_for('patient_appointments') + f"?error={msg}")
-        
-        existing = Appointment.query.filter_by(
-            doctor_id=doctor_id,
-            appointment_date=appt_date,
-            appointment_time=appt_time,
-            status='accepted'
-        ).first()
-        
-        if existing:
-            return redirect(url_for('patient_appointments') + "?error=This time slot is already booked")
-        
         appt = Appointment(
-            patient_name=user.full_name or user.username,
-            patient_age=user.age or 0,
+            patient_name=session.get('full_name',''),
+            patient_age=session.get('age'),
             symptoms=symptoms,
             doctor_id=doctor_id,
             appointment_date=appt_date,
             appointment_time=appt_time,
-            patient_user_id=uid,
-            status='pending'
+            patient_user_id=user_id
         )
         db.session.add(appt)
         db.session.commit()
-        
-        log_activity(uid, "APPOINTMENT_BOOKED", f"doctor_id={doctor_id}")
-        return redirect(url_for('patient_appointments') + "?success=Appointment booked!")
+        log_activity(user_id, "BOOK_APPOINTMENT", f"doctor_id={doctor_id}")
+        return redirect(url_for('patient_appointments'))
     except Exception as e:
         logger.error(f"Booking error: {e}")
-        return redirect(url_for('patient_appointments') + "?error=Booking failed")
+        return redirect(url_for('patient_appointments', error='Booking failed'))
 
 @app.route('/patient/cancel/<int:id>', methods=['POST'])
+@require_login
 @require_role('patient')
 def patient_cancel(id):
     appt = Appointment.query.get_or_404(id)
-    db.session.delete(appt)
+    if appt.patient_user_id != session.get('user_id'):
+        return redirect(url_for('patient_appointments'))
+    appt.status = 'cancelled'
     db.session.commit()
     return redirect(url_for('patient_appointments'))
 
-# ── PATIENT MEDICINES ────────────────────────────────────
+@app.route('/patient/profile')
+@require_login
+@require_role('patient')
+def patient_profile():
+    user_id = session.get('user_id')
+    user = User.query.get(user_id)
+    profile = PatientProfile.query.filter_by(user_id=user_id).first()
+    
+    return render_template('patient_Profile.html',
+        user=user,
+        profile=profile
+    )
+
+@app.route('/patient/profile', methods=['POST'])
+@require_login
+@require_role('patient')
+def patient_profile_update():
+    user_id = session.get('user_id')
+    profile = PatientProfile.query.filter_by(user_id=user_id).first()
+    
+    if not profile:
+        profile = PatientProfile(user_id=user_id)
+        db.session.add(profile)
+    
+    profile.allergies = request.form.get('allergies','').strip()
+    profile.chronic_conditions = request.form.get('chronic_conditions','').strip()
+    profile.emergency_contact = request.form.get('emergency_contact','').strip()
+    profile.emergency_phone = request.form.get('emergency_phone','').strip()
+    profile.insurance_provider = request.form.get('insurance_provider','').strip()
+    profile.insurance_id = request.form.get('insurance_id','').strip()
+    
+    db.session.commit()
+    log_activity(user_id, "UPDATE_PROFILE")
+    return redirect(url_for('patient_profile'))
+
 @app.route('/patient/medicines')
+@require_login
 @require_role('patient')
 def patient_medicines():
-    meds = Medicine.query.all()
-    return render_template('patient_medicines.html', medicines=meds)
+    medicines = Medicine.query.all()
+    return render_template('patient_medicines.html', medicines=medicines)
 
 @app.route('/patient/order', methods=['POST'])
+@require_login
 @require_role('patient')
 def patient_order():
-    uid = session.get('user_id')
-    data = request.form
+    user_id = session.get('user_id')
+    med_id = int(request.form.get('medicine_id'))
+    qty = int(request.form.get('quantity', 1))
+    address = request.form.get('address','').strip()
+    
+    medicine = Medicine.query.get(med_id)
+    if not medicine or qty > medicine.quantity:
+        return redirect(url_for('patient_medicines', error='Invalid order'))
+    
     try:
-        med = Medicine.query.get_or_404(int(data['medicine_id']))
-        qty = int(data.get('quantity',1))
-        if med.quantity < qty:
-            return redirect(url_for('patient_medicines') + "?error=Not enough stock")
-        o = Order(patient_id=uid, medicine_id=med.id, quantity=qty,
-                  total_price=qty*med.unit_price, address=data.get('address',''), status='pending')
-        db.session.add(o)
+        order = Order(
+            patient_id=user_id,
+            medicine_id=med_id,
+            quantity=qty,
+            total_price=medicine.unit_price * qty,
+            address=address
+        )
+        db.session.add(order)
         db.session.commit()
-        return redirect(url_for('patient_medicines') + "?success=Order placed!")
+        log_activity(user_id, "PLACE_ORDER", f"medicine_id={med_id}, qty={qty}")
+        return redirect(url_for('patient_orders'))
     except Exception as e:
         logger.error(f"Order error: {e}")
-        return redirect(url_for('patient_medicines') + "?error=Order failed")
+        return redirect(url_for('patient_medicines', error='Order failed'))
 
 @app.route('/patient/orders')
+@require_login
 @require_role('patient')
 def patient_orders():
-    uid = session.get('user_id')
-    orders = Order.query.filter_by(patient_id=uid).order_by(Order.created_at.desc()).all()
+    user_id = session.get('user_id')
+    orders = Order.query.filter_by(patient_id=user_id).order_by(Order.created_at.desc()).all()
     return render_template('patient_orders.html', orders=orders)
 
-# ── DOCTOR APPOINTMENTS ─────────────────────────────────
+# ── DOCTOR ROUTES ───────────────────────────────────────
 @app.route('/doctor/appointments')
+@require_login
 @require_role('doctor')
 def doctor_appointments():
-    uid = session.get('user_id')
-    doc = Doctor.query.filter_by(user_id=uid).first()
-    f = request.args.get('filter','all')
-    q = Appointment.query.filter_by(doctor_id=doc.id) if doc else Appointment.query.filter_by(doctor_id=-1)
-    if f == 'pending': q = q.filter_by(status='pending')
-    elif f == 'accepted': q = q.filter_by(status='accepted')
-    elif f == 'today': q = q.filter_by(appointment_date=date.today().isoformat())
-    appts = q.order_by(Appointment.appointment_date, Appointment.appointment_time).all()
-    pending_count = Appointment.query.filter_by(doctor_id=doc.id if doc else -1, status='pending').count()
-    return render_template('doctor_appointments.html', appointments=appts, doctor=doc, filter=f, pending_count=pending_count)
+    user_id = session.get('user_id')
+    doctor = Doctor.query.filter_by(user_id=user_id).first()
+    
+    filter_by = request.args.get('filter', 'all')
+    query = Appointment.query.filter_by(doctor_id=doctor.id) if doctor else Appointment.query
+    
+    if filter_by == 'pending':
+        query = query.filter_by(status='pending')
+    elif filter_by == 'accepted':
+        query = query.filter_by(status='accepted')
+    elif filter_by == 'today':
+        query = query.filter_by(appointment_date=str(date.today()))
+    
+    appointments = query.order_by(Appointment.created_at.desc()).all()
+    pending_count = Appointment.query.filter_by(doctor_id=doctor.id, status='pending').count() if doctor else 0
+    
+    return render_template('doctor_appointments.html',
+        appointments=appointments,
+        filter=filter_by,
+        pending_count=pending_count,
+        doctor=doctor
+    )
 
 @app.route('/doctor/accept/<int:id>', methods=['POST'])
+@require_login
 @require_role('doctor')
 def doctor_accept(id):
-    a = Appointment.query.get_or_404(id)
-    a.status = 'accepted'
+    appt = Appointment.query.get_or_404(id)
+    appt.status = 'accepted'
     db.session.commit()
-    return redirect(request.referrer or url_for('doctor_appointments'))
+    return redirect(url_for('doctor_appointments'))
 
 @app.route('/doctor/decline/<int:id>', methods=['POST'])
+@require_login
 @require_role('doctor')
 def doctor_decline(id):
-    a = Appointment.query.get_or_404(id)
-    a.status = 'declined'
+    appt = Appointment.query.get_or_404(id)
+    appt.status = 'declined'
     db.session.commit()
-    return redirect(request.referrer or url_for('doctor_appointments'))
+    return redirect(url_for('doctor_appointments'))
 
 @app.route('/doctor/set-schedule', methods=['POST'])
+@require_login
 @require_role('doctor')
 def doctor_set_schedule():
-    uid = session.get('user_id')
-    doc = Doctor.query.filter_by(user_id=uid).first()
-    if doc:
-        doc.available_days = request.form.get('available_days', doc.available_days)
+    user_id = session.get('user_id')
+    doctor = Doctor.query.filter_by(user_id=user_id).first()
+    if doctor:
+        doctor.available_days = request.form.get('available_days','')
+        doctor.start_time = request.form.get('start_time','09:00')
+        doctor.end_time = request.form.get('end_time','17:00')
         db.session.commit()
     return redirect(url_for('doctor_appointments'))
 
-# ── DOCTOR PRESCRIPTIONS ────────────────────────────────
-@app.route('/doctor/prescriptions', methods=['GET','POST'])
+@app.route('/doctor/prescriptions')
+@require_login
 @require_role('doctor')
 def doctor_prescriptions():
-    uid = session.get('user_id')
-    doc = Doctor.query.filter_by(user_id=uid).first()
-    
-    if request.method == 'POST':
-        try:
-            patient_id = int(request.form.get('patient_id'))
-            medicines_json = request.form.get('medicines')
-            instructions = request.form.get('instructions', '').strip()
-            
-            medicines = json.loads(medicines_json)
-            
-            for med in medicines:
-                m = Medicine.query.get(med.get('medicine_id'))
-                if not m:
-                    return redirect(url_for('doctor_prescriptions') + "?error=Medicine not found")
-            
-            prescription = Prescription(
-                doctor_id=doc.id,
-                patient_id=patient_id,
-                medicines=medicines,
-                instructions=instructions,
-                expires_at=datetime.utcnow() + timedelta(days=30)
-            )
-            db.session.add(prescription)
-            db.session.commit()
-            
-            log_activity(uid, "PRESCRIPTION_CREATED", f"patient_id={patient_id}")
-            return redirect(url_for('doctor_prescriptions') + "?success=Prescription created!")
-        except Exception as e:
-            logger.error(f"Prescription error: {e}")
-            return redirect(url_for('doctor_prescriptions') + f"?error={str(e)}")
-    
-    prescriptions = Prescription.query.filter_by(doctor_id=doc.id if doc else -1).order_by(Prescription.created_at.desc()).all()
-    patients = User.query.filter_by(role='patient').all()
+    user_id = session.get('user_id')
+    doctor = Doctor.query.filter_by(user_id=user_id).first()
     medicines = Medicine.query.all()
+    patients = User.query.filter_by(role='patient').all()
+    prescriptions = Prescription.query.filter_by(doctor_id=doctor.id).order_by(Prescription.created_at.desc()).all() if doctor else []
     
-    return render_template('doctor_prescriptions.html', 
-        prescriptions=prescriptions, patients=patients, medicines=medicines)
+    return render_template('doctor_prescription.html',
+        medicines=medicines,
+        patients=patients,
+        prescriptions=prescriptions,
+        doctor=doctor
+    )
 
-# ── PHARMACY STOCK ──────────────────────────────────────
+@app.route('/doctor/prescriptions', methods=['POST'])
+@require_login
+@require_role('doctor')
+def doctor_create_prescription():
+    user_id = session.get('user_id')
+    doctor = Doctor.query.filter_by(user_id=user_id).first()
+    
+    if not doctor:
+        return redirect(url_for('doctor_prescriptions'))
+    
+    try:
+        patient_id = int(request.form.get('patient_id'))
+        medicines = json.loads(request.form.get('medicines','[]'))
+        instructions = request.form.get('instructions','').strip()
+        
+        if not medicines:
+            return redirect(url_for('doctor_prescriptions'))
+        
+        prescription = Prescription(
+            doctor_id=doctor.id,
+            patient_id=patient_id,
+            medicines=medicines,
+            instructions=instructions,
+            expires_at=datetime.now() + timedelta(days=30)
+        )
+        db.session.add(prescription)
+        db.session.commit()
+        log_activity(user_id, "CREATE_PRESCRIPTION", f"patient_id={patient_id}")
+        return redirect(url_for('doctor_prescriptions'))
+    except Exception as e:
+        logger.error(f"Prescription error: {e}")
+        return redirect(url_for('doctor_prescriptions'))
+
+# ── PHARMACY ROUTES ─────────────────────────────────────
 @app.route('/pharmacy/stock')
+@require_login
 @require_role('pharmacy')
 def pharmacy_stock():
-    meds = Medicine.query.all()
-    low = [m for m in meds if m.quantity <= m.reorder_level]
-    return render_template('pharmacy_stock.html', medicines=meds, low_stock=low)
+    medicines = Medicine.query.all()
+    low_stock = [m for m in medicines if m.quantity <= m.reorder_level]
+    
+    return render_template('pharmacy_stock.html',
+        medicines=medicines,
+        low_stock=low_stock
+    )
 
 @app.route('/pharmacy/stock/add', methods=['POST'])
+@require_login
 @require_role('pharmacy')
 def pharmacy_add_medicine():
     try:
-        data = request.form
-        med = Medicine(name=data['name'], category=data['category'],
-                        quantity=int(data['quantity']), reorder_level=int(data['reorder_level']),
-                        unit_price=float(data['unit_price']))
-        db.session.add(med)
+        medicine = Medicine(
+            name=request.form.get('name'),
+            category=request.form.get('category'),
+            quantity=int(request.form.get('quantity',0)),
+            reorder_level=int(request.form.get('reorder_level',20)),
+            unit_price=float(request.form.get('unit_price',0))
+        )
+        db.session.add(medicine)
         db.session.commit()
+        log_activity(session.get('user_id'), "ADD_MEDICINE")
         return redirect(url_for('pharmacy_stock'))
     except Exception as e:
         logger.error(f"Add medicine error: {e}")
         return redirect(url_for('pharmacy_stock'))
 
 @app.route('/pharmacy/stock/update/<int:id>', methods=['POST'])
+@require_login
 @require_role('pharmacy')
-def pharmacy_update_stock(id):
-    try:
-        m = Medicine.query.get_or_404(id)
-        m.quantity = int(request.form['quantity'])
-        db.session.commit()
-    except Exception as e:
-        logger.error(f"Update stock error: {e}")
+def pharmacy_update_medicine(id):
+    medicine = Medicine.query.get_or_404(id)
+    medicine.quantity = int(request.form.get('quantity', 0))
+    db.session.commit()
     return redirect(url_for('pharmacy_stock'))
 
 @app.route('/pharmacy/stock/delete/<int:id>', methods=['POST'])
+@require_login
 @require_role('pharmacy')
 def pharmacy_delete_medicine(id):
-    try:
-        m = Medicine.query.get_or_404(id)
-        db.session.delete(m)
-        db.session.commit()
-    except Exception as e:
-        logger.error(f"Delete medicine error: {e}")
+    medicine = Medicine.query.get_or_404(id)
+    db.session.delete(medicine)
+    db.session.commit()
     return redirect(url_for('pharmacy_stock'))
 
-# ── PHARMACY ORDERS ─────────────────────────────────────
 @app.route('/pharmacy/orders')
+@require_login
 @require_role('pharmacy')
 def pharmacy_orders():
-    f = request.args.get('filter','all')
-    q = Order.query
-    if f != 'all': q = q.filter_by(status=f)
-    orders = q.order_by(Order.created_at.desc()).all()
-    return render_template('pharmacy_orders.html', orders=orders, filter=f)
+    filter_by = request.args.get('filter', 'all')
+    query = Order.query
+    
+    if filter_by != 'all':
+        query = query.filter_by(status=filter_by)
+    
+    orders = query.order_by(Order.created_at.desc()).all()
+    
+    return render_template('pharmacy_orders.html',
+        orders=orders,
+        filter=filter_by
+    )
 
 @app.route('/pharmacy/accept-order/<int:id>', methods=['POST'])
+@require_login
 @require_role('pharmacy')
 def pharmacy_accept_order(id):
-    o = Order.query.get_or_404(id)
-    o.status='accepted'
+    order = Order.query.get_or_404(id)
+    order.status = 'accepted'
     db.session.commit()
-    return redirect(request.referrer or url_for('pharmacy_orders'))
+    return redirect(url_for('pharmacy_orders'))
 
 @app.route('/pharmacy/pack-order/<int:id>', methods=['POST'])
+@require_login
 @require_role('pharmacy')
 def pharmacy_pack_order(id):
-    o = Order.query.get_or_404(id)
-    o.status='packing'
-    m = Medicine.query.get(o.medicine_id)
-    if m: m.quantity = max(0, m.quantity - o.quantity)
+    order = Order.query.get_or_404(id)
+    order.status = 'packing'
     db.session.commit()
-    return redirect(request.referrer or url_for('pharmacy_orders'))
+    return redirect(url_for('pharmacy_orders'))
 
 @app.route('/pharmacy/ship-order/<int:id>', methods=['POST'])
+@require_login
 @require_role('pharmacy')
 def pharmacy_ship_order(id):
-    o = Order.query.get_or_404(id)
-    o.status='shipped'
+    order = Order.query.get_or_404(id)
+    order.status = 'shipped'
     db.session.commit()
-    return redirect(request.referrer or url_for('pharmacy_orders'))
+    return redirect(url_for('pharmacy_orders'))
 
-# ── HOSPITAL MANAGEMENT ─────────────────────────────────
+# ── PUBLIC/GUEST ROUTES ─────────────────────────────────
+@app.route('/appointments')
+def appointments():
+    """Guest appointment booking"""
+    doctors = Doctor.query.all()
+    today = date.today().isoformat()
+    
+    if request.method == 'POST':
+        try:
+            appt = Appointment(
+                patient_name=request.form.get('patient_name'),
+                patient_age=int(request.form.get('patient_age',0)),
+                symptoms=request.form.get('symptoms','').strip(),
+                doctor_id=int(request.form.get('doctor_id')),
+                appointment_date=request.form.get('appointment_date'),
+                appointment_time=request.form.get('appointment_time')
+            )
+            db.session.add(appt)
+            db.session.commit()
+            log_activity(None, "GUEST_APPOINTMENT")
+            return render_template('appointments.html', doctors=doctors, success='Appointment booked!')
+        except Exception as e:
+            logger.error(f"Guest appointment error: {e}")
+            return render_template('appointments.html', doctors=doctors, error='Booking failed')
+    
+    return render_template('appointments.html', doctors=doctors, today=today)
+
+@app.route('/stock')
+def stock():
+    """Public medicine stock view"""
+    medicines = Medicine.query.all()
+    low_stock = [m for m in medicines if m.quantity <= m.reorder_level]
+    
+    return render_template('stock.html',
+        medicines=medicines,
+        low_stock=low_stock
+    )
+
+@app.route('/stock/add', methods=['POST'])
+def stock_add():
+    """Add medicine (public)"""
+    try:
+        medicine = Medicine(
+            name=request.form.get('name'),
+            category=request.form.get('category'),
+            quantity=int(request.form.get('quantity',0)),
+            reorder_level=int(request.form.get('reorder_level',20)),
+            unit_price=float(request.form.get('unit_price',0))
+        )
+        db.session.add(medicine)
+        db.session.commit()
+        return redirect(url_for('stock'))
+    except Exception as e:
+        logger.error(f"Add medicine error: {e}")
+        return redirect(url_for('stock'))
+
+@app.route('/stock/update/<int:id>', methods=['POST'])
+def stock_update(id):
+    """Update stock (public)"""
+    medicine = Medicine.query.get_or_404(id)
+    medicine.quantity = int(request.form.get('quantity', 0))
+    db.session.commit()
+    return redirect(url_for('stock'))
+
+@app.route('/stock/delete/<int:id>', methods=['POST'])
+def stock_delete(id):
+    """Delete medicine (public)"""
+    medicine = Medicine.query.get_or_404(id)
+    db.session.delete(medicine)
+    db.session.commit()
+    return redirect(url_for('stock'))
+
+# ── HOSPITAL/ADMIN ROUTES ──────────────────────────────
 @app.route('/mgmt/doctors')
+@require_login
 @require_role('hospital')
 def mgmt_doctors():
-    docs = Doctor.query.all()
-    return render_template('mgmt_doctors.html', doctors=docs, success=request.args.get('success'))
+    doctors = Doctor.query.all()
+    return render_template('mgmt_doctors.html', doctors=doctors)
 
 @app.route('/mgmt/doctors/add', methods=['POST'])
+@require_login
 @require_role('hospital')
 def mgmt_add_doctor():
     try:
-        data = request.form
-        email = data.get('email','')
+        email = request.form.get('email','').strip()
+        data = {
+            'name': request.form.get('name'),
+            'specialty': request.form.get('specialty'),
+            'password': request.form.get('password'),
+            'available_days': request.form.get('available_days','Mon,Tue,Wed,Thu,Fri')
+        }
+        
         if User.query.filter_by(email=email).first():
             return render_template('mgmt_doctors.html', doctors=Doctor.query.all(), error="Email already exists.")
         u = User(username=email.split('@')[0], email=email, role='doctor',
@@ -646,27 +787,31 @@ def mgmt_add_doctor():
                    available_days=data.get('available_days','Mon,Tue,Wed,Thu,Fri'), user_id=u.id)
         db.session.add(d)
         db.session.commit()
-        return redirect(url_for('mgmt_doctors', success='Doctor added successfully!'))
+        return redirect(url_for('mgmt_doctors'))
     except Exception as e:
         db.session.rollback()
         logger.error(f"Add doctor error: {e}")
         return redirect(url_for('mgmt_doctors'))
 
 @app.route('/mgmt/orders')
+@require_login
 @require_role('hospital')
 def mgmt_orders():
     orders = Order.query.order_by(Order.created_at.desc()).all()
     return render_template('mgmt_orders.html', orders=orders)
 
 @app.route('/mgmt/deliver/<int:id>', methods=['POST'])
+@require_login
 @require_role('hospital')
 def mgmt_deliver(id):
     o = Order.query.get_or_404(id)
     o.status='delivered'
+    o.delivered_at = datetime.now()
     db.session.commit()
     return redirect(url_for('mgmt_orders'))
 
 @app.route('/mgmt/funding')
+@require_login
 @require_role('hospital')
 def mgmt_funding():
     orders = Order.query.filter(Order.status.in_(['delivered','shipped','packing','accepted'])).all()
@@ -700,8 +845,7 @@ def messages():
     if role == 'doctor':
         contacts = User.query.filter_by(role='patient').all()
     elif role == 'patient':
-        contacts = User.query.filter_by(role='doctor').all()
-        contacts += User.query.filter_by(role='hospital').all()
+        contacts = list(User.query.filter_by(role='doctor').all()) + list(User.query.filter_by(role='hospital').all())
     else:
         contacts = User.query.filter(User.id != uid).all()
     
@@ -728,6 +872,11 @@ def send_message():
         logger.error(f"Message error: {e}")
     
     return redirect(url_for('messages'))
+
+@app.route('/chatbot')
+def chatbot():
+    """Dedicated chatbot page"""
+    return render_template('chatbot.html')
 
 # ── AI APIs ─────────────────────────────────────────────
 @app.route('/api/suggest-doctor', methods=['POST'])
