@@ -5,12 +5,22 @@
   <div><h1>🏥 <span style="color:var(--blue-lt)">Health Profile</span></h1><p class="subtitle">Manage your medical information</p></div>
 </div>
 
+<style>
+.hidden { display: none !important; }
+</style>
+
 {% if success %}<div class="alert alert-success">✅ {{ success }}</div>{% endif %}
 {% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
 
 <div class="two-col">
   <div class="card">
-    <h3>Personal Information</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <div>
+        <h3>Personal Information</h3>
+        <div style="color:var(--text-3);font-size:0.9rem;">Saved data appears here after you submit the form.</div>
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="toggleProfileEditor()">Edit Profile</button>
+    </div>
     <div style="display:flex;flex-direction:column;gap:0.8rem;">
       <div><strong style="color:var(--text);">{{ user.full_name or user.username }}</strong></div>
       <div><span style="color:var(--text-3);">Email:</span> {{ user.email }}</div>
@@ -21,22 +31,59 @@
   </div>
 
   <div class="card">
-    <h3>Emergency Contact</h3>
-    <div style="display:flex;flex-direction:column;gap:0.8rem;padding:0.75rem;background:var(--bg-dark);border-radius:var(--r);border-left:3px solid var(--red);">
-      <div style="color:var(--text-3);font-size:0.85rem;">Keep this updated — used only in emergencies</div>
-      {% if profile %}
-      <div><strong style="color:var(--text);">{{ profile.emergency_contact or 'Not set' }}</strong></div>
-      <div><span style="color:var(--text-3);">{{ profile.emergency_phone or 'No phone' }}</span></div>
-      {% else %}
-      <div style="color:var(--text-3);">No emergency contact set</div>
-      {% endif %}
+    <h3>Health Summary</h3>
+    <div style="display:grid;grid-template-columns:1fr;gap:0.85rem;">
+      <div style="padding:0.85rem;background:var(--bg-dark);border-radius:var(--r);border:1px solid var(--border);">
+        <strong style="color:var(--text);">Emergency Contact</strong>
+        <div style="color:var(--text-3);margin-top:0.35rem;">{{ profile.emergency_contact or 'Not set' }}</div>
+        <div style="color:var(--text-3);font-size:0.9rem;">{{ profile.emergency_phone or 'No phone' }}</div>
+      </div>
+      <div style="padding:0.85rem;background:var(--bg-dark);border-radius:var(--r);border:1px solid var(--border);">
+        <strong style="color:var(--text);">Insurance</strong>
+        <div style="color:var(--text-3);margin-top:0.35rem;">{{ profile.insurance_provider or 'Not set' }}</div>
+        <div style="color:var(--text-3);font-size:0.9rem;">{{ profile.insurance_id or 'No policy ID' }}</div>
+      </div>
     </div>
   </div>
 </div>
 
 <div class="card" style="margin-top:1.25rem;">
+  <h3>Medical Details</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div style="padding:0.85rem;background:var(--bg-dark);border-radius:var(--r);border:1px solid var(--border);">
+      <strong style="color:var(--text);">Allergies</strong>
+      <p style="color:var(--text-2);margin-top:0.5rem;">{{ profile.allergies or 'Not recorded' }}</p>
+    </div>
+    <div style="padding:0.85rem;background:var(--bg-dark);border-radius:var(--r);border:1px solid var(--border);">
+      <strong style="color:var(--text);">Chronic Conditions</strong>
+      <p style="color:var(--text-2);margin-top:0.5rem;">{{ profile.chronic_conditions or 'Not recorded' }}</p>
+    </div>
+  </div>
+</div>
+
+<div id="profile-editor" class="card hidden" style="margin-top:1.25rem;">
   <h3>Edit Medical Information</h3>
   <form action="/patient/profile" method="POST" class="form-grid">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input type="text" name="full_name" placeholder="Your full name" value="{{ user.full_name or user.username }}">
+    </div>
+
+    <div class="form-group">
+      <label>Phone</label>
+      <input type="tel" name="phone" placeholder="+91 XXXXX XXXXX" value="{{ user.phone or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label>Age</label>
+      <input type="number" name="age" min="0" placeholder="Your age" value="{{ user.age or '' }}">
+    </div>
+
+    <div class="form-group">
+      <label>Blood Group</label>
+      <input type="text" name="blood_group" placeholder="e.g. A+, O-" value="{{ user.blood_group or '' }}">
+    </div>
+
     <div class="form-group">
       <label>Allergies</label>
       <textarea name="allergies" rows="3" placeholder="e.g. Penicillin, Peanuts, Shellfish">{{ profile.allergies or '' }}</textarea>
@@ -67,11 +114,20 @@
       <input type="text" name="insurance_id" placeholder="Your policy ID" value="{{ profile.insurance_id or '' }}">
     </div>
 
-    <div style="grid-column:1/-1;">
+    <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:1rem;">
+      <button type="button" class="btn btn-secondary" onclick="toggleProfileEditor()">Cancel</button>
       <button type="submit" class="btn btn-primary">💾 Save Profile</button>
     </div>
   </form>
 </div>
+
+<script>
+window.toggleProfileEditor = function() {
+  const editor = document.getElementById('profile-editor');
+  if (!editor) return;
+  editor.classList.toggle('hidden');
+};
+</script>
 
 <div class="card" style="margin-top:1.25rem;">
   <h3>Medical Notes</h3>
@@ -82,6 +138,40 @@
     <span style="color:var(--text-3);">No notes from doctors yet. They will appear here after consultations.</span>
     {% endif %}
   </div>
+</div>
+
+<div class="card" style="margin-top:1.25rem;">
+  <h3>Recent Prescriptions</h3>
+  {% if prescriptions %}
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    {% for p in prescriptions %}
+    <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+        <div>
+          <strong style="color:var(--text);"> {{ p.doctor.name }}</strong>
+          <div style="font-size:0.8rem;color:var(--text-3);">{{ p.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+        </div>
+        <span class="badge badge-{% if p.status=='pending' %}yellow{% elif p.status=='dispensed' %}green{% else %}blue{% endif %}">{{ p.status }}</span>
+      </div>
+      <div style="margin-bottom:0.75rem;">
+        <strong style="color:var(--text-2);">Medicines:</strong>
+        <ul style="margin:0.5rem 0 0 1.5rem;color:var(--text-2);font-size:0.9rem;">
+          {% for med in p.medicines %}
+          <li>{{ med.get('medicine_name') or med.get('medicine_id') }} - {{ med.get('dosage') }} {{ med.get('frequency') }} for {{ med.get('days') }} days</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if p.instructions %}
+      <div style="padding:0.75rem;background:var(--bg-dark);border-radius:var(--r-sm);border-left:3px solid var(--cyan);font-size:0.85rem;">
+        <strong style="color:var(--text-2);">Instructions:</strong> {{ p.instructions }}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">No prescriptions have been issued to your account yet.</p>
+  {% endif %}
 </div>
 
 {% endblock %}

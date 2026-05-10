@@ -2,6 +2,8 @@
 {% block title %}— My Orders{% endblock %}
 {% block content %}
 <div class="page-header"><div><h1>📦 <span style="color:var(--blue-lt)">My Orders</span></h1><p class="subtitle">Track your medicine orders</p></div></div>
+{% if success %}<div class="alert alert-success">✅ {{ success }}</div>{% endif %}
+{% if error %}<div class="alert alert-danger">⚠️ {{ error }}</div>{% endif %}
 {% if orders %}
   {% for o in orders %}
   <div class="card" style="margin-bottom:1rem;">

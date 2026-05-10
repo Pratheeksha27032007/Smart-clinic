@@ -21,6 +21,11 @@
       </div>
     </div>
 
+    <div id="patient-history" class="card" style="display:none;margin-bottom:1rem;background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
+      <h4 style="margin-top:0;margin-bottom:0.75rem;">Patient History</h4>
+      <div id="patient-history-content" style="color:var(--text-2);font-size:0.95rem;">Select a patient to view recent history.</div>
+    </div>
+
     <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
       <label style="display:block;font-weight:600;margin-bottom:0.75rem;color:var(--text);">Medicines</label>
       <div id="medicines-container" style="display:flex;flex-direction:column;gap:0.75rem;">
@@ -70,7 +75,7 @@
         <strong style="color:var(--text-2);">Medicines:</strong>
         <ul style="margin:0.5rem 0 0 1.5rem;color:var(--text-2);font-size:0.9rem;">
           {% for med in p.medicines %}
-          <li>{{ med.get('medicine_id') or 'Unknown' }} - {{ med.get('dosage') }} {{ med.get('frequency') }} for {{ med.get('days') }} days</li>
+          <li>{{ med.get('medicine_name') or medicines_map.get(med.get('medicine_id'), med.get('medicine_id') or 'Unknown') }} - {{ med.get('dosage') }} {{ med.get('frequency') }} for {{ med.get('days') }} days</li>
           {% endfor %}
         </ul>
       </div>
@@ -83,9 +88,9 @@
 
       <div style="display:flex;gap:0.5rem;margin-top:0.75rem;flex-wrap:wrap;">
         {% if p.status == 'pending' %}
-        <button class="btn btn-success btn-sm" onclick="dispensePrescription( p.id )">✅ Mark Dispensed</button>
+        <button class="btn btn-success btn-sm" onclick="dispensePrescription({{ p.id }})">✅ Mark Dispensed</button>
         {% endif %}
-        <a href="?print={{ p.id }}" class="btn btn-cyan btn-sm" target="_blank">🖨️ Print</a>
+        <a href="/doctor/prescriptions/print/{{ p.id }}" class="btn btn-cyan btn-sm" target="_blank">🖨️ Print</a>
       </div>
     </div>
     {% endfor %}
@@ -123,62 +128,125 @@ function addMedicine() {
 }
 
 function removeMedicine(btn) {
-  btn.closest('.medicine-entry').remove();
+  const row = btn.closest('.medicine-entry');
+  if (row) row.remove();
 }
 
-document.getElementById('prescription-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  const entries = document.querySelectorAll('.medicine-entry');
-  const medicines = [];
-  
-  entries.forEach(entry => {
-    const select = entry.querySelector('.medicine-select');
-    const dosage = entry.querySelector('.dosage').value;
-    const frequency = entry.querySelector('.frequency').value;
-    const duration = entry.querySelector('.duration').value;
-    
-    if (select.value) {
-      medicines.push({
-        medicine_id: parseInt(select.value),
-        medicine_name: select.options[select.selectedIndex].text,
-        dosage: dosage,
-        frequency: frequency,
-        days: parseInt(duration)
-      });
-    }
-  });
-  
-  if (medicines.length === 0) {
-    alert('Please add at least one medicine');
+const patientHistory = {{ patient_history | tojson | safe }};
+
+function updatePatientHistory(patientId) {
+  const box = document.getElementById('patient-history');
+  const content = document.getElementById('patient-history-content');
+  if (!box || !content) return;
+  if (!patientId || !patientHistory[patientId]) {
+    box.style.display = 'none';
     return;
   }
-  
-  const formData = new FormData(document.getElementById('prescription-form'));
-  formData.set('medicines', JSON.stringify(medicines));
-  
-  try {
-    const res = await fetch('/doctor/prescriptions', {
-      method: 'POST',
-      body: formData
+
+  const history = patientHistory[patientId];
+  const lines = [];
+  lines.push(`<div><strong>Recent prescriptions:</strong> ${history.prescription_count}</div>`);
+  if (history.last_appointment.date) {
+    lines.push(`<div><strong>Last visit:</strong> ${history.last_appointment.date} ${history.last_appointment.time} (${history.last_appointment.status})</div>`);
+    if (history.last_appointment.symptoms) {
+      lines.push(`<div><strong>Symptoms:</strong> ${history.last_appointment.symptoms}</div>`);
+    }
+  }
+  if (history.recent_prescriptions.length) {
+    lines.push('<div style="margin-top:0.5rem;"><strong>Last prescriptions:</strong></div>');
+    lines.push('<ul style="margin:0.25rem 0 0 1.25rem;">');
+    history.recent_prescriptions.forEach(rx => {
+      lines.push(`<li>${rx.created_at} — ${rx.status} — ${rx.medicines.join(', ')}</li>`);
+    });
+    lines.push('</ul>');
+  }
+  if (history.recent_appointments.length) {
+    lines.push('<div style="margin-top:0.5rem;"><strong>Recent appointments:</strong></div>');
+    lines.push('<ul style="margin:0.25rem 0 0 1.25rem;">');
+    history.recent_appointments.forEach(appt => {
+      lines.push(`<li>${appt.date} ${appt.time} — ${appt.status}${appt.symptoms ? ' — ' + appt.symptoms : ''}</li>`);
+    });
+    lines.push('</ul>');
+  }
+  content.innerHTML = lines.join('');
+  box.style.display = 'block';
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  const patientSelect = document.querySelector('select[name="patient_id"]');
+  if (patientSelect) {
+    patientSelect.addEventListener('change', () => updatePatientHistory(patientSelect.value));
+  }
+
+  const form = document.getElementById('prescription-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const entries = document.querySelectorAll('.medicine-entry');
+    const medicines = [];
+    
+    entries.forEach(entry => {
+      const select = entry.querySelector('.medicine-select');
+      const dosage = entry.querySelector('.dosage').value.trim();
+      const frequency = entry.querySelector('.frequency').value.trim();
+      const duration = entry.querySelector('.duration').value;
+      
+      if (select && select.value) {
+        medicines.push({
+          medicine_id: parseInt(select.value, 10),
+          medicine_name: select.options[select.selectedIndex].text,
+          dosage: dosage,
+          frequency: frequency,
+          days: parseInt(duration, 10)
+        });
+      }
     });
     
-    const data = await res.json();
-    if (res.ok) {
-      alert('Prescription created!');
-      location.reload();
-    } else {
-      alert('Error: ' + data.error);
+    if (medicines.length === 0) {
+      alert('Please add at least one medicine');
+      return;
     }
-  } catch (err) {
-    alert('Failed to create prescription');
-  }
+    
+    const formData = new FormData(form);
+    formData.set('medicines', JSON.stringify(medicines));
+    
+    try {
+      const res = await fetch('/doctor/prescriptions', {
+        method: 'POST',
+        body: formData
+      });
+      
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Prescription created!');
+        location.reload();
+      } else {
+        alert('Error: ' + (data.error || 'Unable to create prescription'));
+      }
+    } catch (err) {
+      alert('Failed to create prescription');
+    }
+  });
 });
 
-function dispensePrescription(id) {
+window.dispensePrescription = async function(id) {
   if (confirm('Mark this prescription as dispensed?')) {
-    // Add endpoint to handle this
-    alert('Feature coming soon');
+    try {
+      const res = await fetch(`/doctor/prescriptions/dispense/${id}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Prescription marked dispensed');
+        location.reload();
+      } else {
+        alert('Error updating prescription');
+      }
+    } catch (err) {
+      alert('Failed to update prescription status');
+    }
   }
 }
 </script>

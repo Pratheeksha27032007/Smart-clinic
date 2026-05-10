@@ -33,6 +33,14 @@
         <span>🎂 Age {{ a.patient_age }}</span>
         {% if a.symptoms %}<span>🩺 {{ a.symptoms }}</span>{% endif %}
       </div>
+      {% if a.patient_user_id and patient_history[a.patient_user_id] %}
+      <div class="appt-history" style="margin-top:0.5rem;color:var(--text-3);font-size:0.9rem;">
+        <span>🗂️ Prescriptions: {{ patient_history[a.patient_user_id].prescription_count }}</span>
+        {% if patient_history[a.patient_user_id].last_appointment.date %}
+        <span>• Last visit: {{ patient_history[a.patient_user_id].last_appointment.date }} {{ patient_history[a.patient_user_id].last_appointment.time }} ({{ patient_history[a.patient_user_id].last_appointment.status }})</span>
+        {% endif %}
+      </div>
+      {% endif %}
       <div style="display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap;">
         {% if a.status == 'pending' %}
         <form action="/doctor/accept/{{ a.id }}" method="POST" style="display:inline;">

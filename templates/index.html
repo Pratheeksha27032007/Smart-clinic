@@ -57,6 +57,10 @@
     {% else %}<p class="empty-state">No messages yet</p>{% endif %}
   </div>
 </div>
+<div class="card" style="margin-top:1rem;">
+  <div class="card-header"><span class="card-title">Prescription Center</span><a href="/doctor/prescriptions" class="btn btn-sm btn-cyan">Open Prescriptions</a></div>
+  <p style="margin:0.75rem 0 0 0;color:var(--text-2);">Create new prescriptions, review recent patient orders, and mark prescriptions as dispensed.</p>
+</div>
 
 {% elif role == 'pharmacy' %}
 <div class="dash-hero">
@@ -173,14 +177,15 @@
   <a href="/patient/medicines" class="feature-card"><div class="feature-icon" style="font-size:1rem;font-weight:700;">Rx</div><h3>Order Medicines</h3><p>Browse available medicines and order them delivered to your address.</p><span class="feature-cta">Browse</span></a>
   <a href="/patient/orders" class="feature-card"><div class="feature-icon" style="font-size:1rem;font-weight:700;">Trk</div><h3>Track Orders</h3><p>Real-time tracking for all your medicine orders and deliveries.</p><span class="feature-cta">Track</span></a>
   <a href="/messages" class="feature-card"><div class="feature-icon" style="font-size:1rem;font-weight:700;">Msg</div><h3>Contact Doctor</h3><p>Send messages directly to your doctor for quick consultations.</p><span class="feature-cta">Message</span></a>
-  <div class="feature-card" style="cursor:default;">
+  <a href="/patient/profile" class="feature-card">
     <div class="feature-icon" style="font-size:1rem;font-weight:700;">ID</div>
     <h3>Health Profile</h3>
     <div style="margin-top:0.5rem;display:flex;flex-direction:column;gap:0.4rem;">
       {% if session.get('blood_group') %}<div style="font-size:0.82rem;color:var(--text-2);">Blood Group: <strong style="color:var(--red);">{{ session.get('blood_group') }}</strong></div>{% endif %}
       {% if session.get('age') %}<div style="font-size:0.82rem;color:var(--text-2);">Age: <strong>{{ session.get('age') }}</strong></div>{% endif %}
     </div>
-  </div>
+    <span class="feature-cta">View Profile</span>
+  </a>
   <div class="feature-card" onclick="toggleChat()" style="cursor:pointer;border:1px solid rgba(37,99,235,0.3);">
     <div class="feature-icon" style="font-size:1rem;font-weight:700;">AI</div>
     <h3>AI Assistant</h3>

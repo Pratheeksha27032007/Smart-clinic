@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}— Print Prescription{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div><h1>🖨️ <span style="color:var(--blue-lt)">Prescription Print</span></h1>
+  <p class="subtitle">Print or save this prescription.</p></div>
+</div>
+<div class="card" style="padding:2rem;max-width:800px;margin:auto;">
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <h2 style="margin:0;">{{ doctor.name }}</h2>
+      <div>{{ doctor.specialty }}</div>
+    </div>
+    <div style="text-align:right;">
+      <strong>Prescription ID:</strong> {{ prescription.id }}<br>
+      <strong>Date:</strong> {{ prescription.created_at.strftime('%d %b %Y') }}<br>
+      <strong>Status:</strong> {{ prescription.status | capitalize }}
+    </div>
+  </div>
+  <hr style="margin:1rem 0;" />
+  <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <strong>Patient</strong><br>
+      {{ patient.full_name or patient.username }}<br>
+      {{ patient.email }}
+    </div>
+    <div>
+      <strong>Doctor</strong><br>
+      {{ doctor.name }}<br>
+      {{ doctor.specialty }}
+    </div>
+  </div>
+  <div style="margin-top:1.5rem;">
+    <strong>Medicines</strong>
+    <ul style="margin:0.5rem 0 0 1.25rem;">
+      {% for med in prescription.medicines %}
+      <li>{{ med.medicine_name or med.medicine_id }} — {{ med.dosage }} / {{ med.frequency }} for {{ med.days }} days</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% if prescription.instructions %}
+  <div style="margin-top:1.5rem;">
+    <strong>Instructions</strong>
+    <p style="margin:0.5rem 0 0 0;">{{ prescription.instructions }}</p>
+  </div>
+  {% endif %}
+  <div style="margin-top:2rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;">
+    <div>
+      <strong>Expires At:</strong> {{ prescription.expires_at.strftime('%d %b %Y') if prescription.expires_at else 'N/A' }}
+    </div>
+    <button class="btn btn-primary" onclick="window.print()">Print</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+  window.print();
+});
+</script>
+{% endblock %}
