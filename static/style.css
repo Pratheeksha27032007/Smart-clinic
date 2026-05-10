@@ -387,7 +387,7 @@ select option { background: var(--bg-dark); }
 
 /* ── AUTH PAGES ──────────────────────────────────────────── */
 .auth-page {
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-deep);
   display: flex; align-items: center; justify-content: center; padding: 1.5rem;
   background-image: radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.12) 0%, transparent 60%),
@@ -421,7 +421,7 @@ select option { background: var(--bg-dark); }
   background: radial-gradient(circle, rgba(37,99,235,0.12) 0%, transparent 70%);
 }
 .dash-hero-text h1 { font-family: 'Outfit', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--text); margin-bottom: 0.3rem; }
-.dash-hero-text h1 span { background: linear-gradient(90deg, var(--blue-lt), var(--cyan)); --webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.dash-hero-text h1 span { background: linear-gradient(90deg, var(--blue-lt), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .dash-hero-text p { font-size: 0.875rem; color: var(--text-3); }
 .dash-hero-icon { font-size: 3.5rem; opacity: 0.8; }
 
