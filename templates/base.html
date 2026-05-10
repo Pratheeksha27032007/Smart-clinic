@@ -26,6 +26,7 @@
     {% elif session.get('role') == 'hospital' %}
       <a href="/" class="nav-link {% if request.path=='/' %}active{% endif %}">Dashboard</a>
       <a href="/mgmt/doctors" class="nav-link {% if '/mgmt/doctors' in request.path %}active{% endif %}">Doctors</a>
+      <a href="/mgmt/pharmacies" class="nav-link {% if '/mgmt/pharmacies' in request.path %}active{% endif %}">Pharmacies</a>
       <a href="/mgmt/orders" class="nav-link {% if '/mgmt/orders' in request.path %}active{% endif %}">Shipments</a>
       <a href="/mgmt/funding" class="nav-link {% if '/mgmt/funding' in request.path %}active{% endif %}">Funding</a>
     {% elif session.get('role') == 'patient' %}
@@ -71,6 +72,7 @@
   {% elif session.get('role') == 'hospital' %}
     <a href="/" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Dashboard</a>
     <a href="/mgmt/doctors" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Doctors</a>
+    <a href="/mgmt/pharmacies" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Pharmacies</a>
     <a href="/mgmt/orders" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Shipments</a>
     <a href="/mgmt/funding" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Funding</a>
   {% elif session.get('role') == 'patient' %}

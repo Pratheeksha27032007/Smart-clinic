@@ -133,7 +133,7 @@ def seed_data():
     if Doctor.query.count() == 0:
         doc_user = User.query.filter_by(email='doctor@smartclinic.com').first()
         doctors = [
-            Doctor(name="Dr. Priya Sharma", specialty="General Physician", available_days="Mon,Tue,Wed,Thu,Fri", user_id=doc_user.id if doc_user else None, consultation_fee=500),
+            Doctor(name="Dr. Riya Sharma", specialty="General Physician", available_days="Mon,Tue,Wed,Thu,Fri", user_id=doc_user.id if doc_user else None, consultation_fee=500),
             Doctor(name="Dr. Arjun Mehta", specialty="Cardiologist", available_days="Mon,Wed,Fri", consultation_fee=800),
             Doctor(name="Dr. Sneha Patel", specialty="Dermatologist", available_days="Tue,Thu,Sat", consultation_fee=600),
             Doctor(name="Dr. Rahul Verma", specialty="Orthopedic", available_days="Mon,Tue,Thu,Fri", consultation_fee=700),
@@ -786,10 +786,10 @@ def pharmacy_delete_medicine(id):
 @require_role('pharmacy')
 def pharmacy_orders():
     filter_by = request.args.get('filter', 'all')
-    query = Order.query
+    query = Order.query.join(Medicine).join(User, Order.patient_id == User.id)
     
     if filter_by != 'all':
-        query = query.filter_by(status=filter_by)
+        query = query.filter(Order.status == filter_by)
     
     orders = query.order_by(Order.created_at.desc()).all()
     
@@ -823,6 +823,17 @@ def pharmacy_ship_order(id):
     order = Order.query.get_or_404(id)
     order.status = 'shipped'
     db.session.commit()
+    return redirect(url_for('pharmacy_orders'))
+
+@app.route('/pharmacy/deliver/<int:id>', methods=['POST'])
+@require_login
+@require_role('pharmacy')
+def pharmacy_deliver(id):
+    order = Order.query.get_or_404(id)
+    if order.status == 'shipped':
+        order.status = 'delivered'
+        order.delivered_at = datetime.now()
+        db.session.commit()
     return redirect(url_for('pharmacy_orders'))
 
 # ── PUBLIC/GUEST ROUTES ─────────────────────────────────
@@ -945,22 +956,53 @@ def mgmt_add_doctor():
         logger.error(f"Add doctor error: {e}")
         return redirect(url_for('mgmt_doctors'))
 
+@app.route('/mgmt/pharmacies')
+@require_login
+@require_role('hospital')
+def mgmt_pharmacies():
+    pharmacies = User.query.filter_by(role='pharmacy').all()
+    return render_template('mgmt_pharmacies.html', pharmacies=pharmacies,
+        success=request.args.get('success'), error=request.args.get('error'))
+
+@app.route('/mgmt/pharmacies/add', methods=['POST'])
+@require_login
+@require_role('hospital')
+def mgmt_add_pharmacy():
+    try:
+        email = request.form.get('email','').strip()
+        name = request.form.get('name','').strip()
+        specialization = request.form.get('specialization','Pharmacy').strip()
+        password = request.form.get('password','')
+
+        if User.query.filter_by(email=email).first():
+            return render_template('mgmt_pharmacies.html', pharmacies=User.query.filter_by(role='pharmacy').all(), error="Email already exists.")
+
+        u = User(username=email.split('@')[0], email=email, role='pharmacy', full_name=name, specialization=specialization)
+        u.set_password(password)
+        db.session.add(u)
+        db.session.commit()
+        return redirect(url_for('mgmt_pharmacies', success='Pharmacy staff added successfully.'))
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Add pharmacy error: {e}")
+        return redirect(url_for('mgmt_pharmacies', error='Failed to add pharmacy staff.'))
+
+@app.route('/mgmt/pharmacies/delete/<int:id>', methods=['POST'])
+@require_login
+@require_role('hospital')
+def mgmt_delete_pharmacy(id):
+    user = User.query.filter_by(id=id, role='pharmacy').first()
+    if user:
+        db.session.delete(user)
+        db.session.commit()
+    return redirect(url_for('mgmt_pharmacies', success='Pharmacy staff removed.'))
+
 @app.route('/mgmt/orders')
 @require_login
 @require_role('hospital')
 def mgmt_orders():
-    orders = Order.query.order_by(Order.created_at.desc()).all()
+    orders = Order.query.join(Medicine).join(User, Order.patient_id == User.id).order_by(Order.created_at.desc()).all()
     return render_template('mgmt_orders.html', orders=orders)
-
-@app.route('/mgmt/deliver/<int:id>', methods=['POST'])
-@require_login
-@require_role('hospital')
-def mgmt_deliver(id):
-    o = Order.query.get_or_404(id)
-    o.status='delivered'
-    o.delivered_at = datetime.now()
-    db.session.commit()
-    return redirect(url_for('mgmt_orders'))
 
 @app.route('/mgmt/funding')
 @require_login
@@ -994,15 +1036,20 @@ def messages():
     Message.query.filter_by(receiver_id=uid, is_read=False).update({'is_read':True})
     db.session.commit()
     
+    patient_prescriptions = []
+    pharmacies = []
     if role == 'doctor':
         contacts = User.query.filter_by(role='patient').all()
     elif role == 'patient':
-        contacts = list(User.query.filter_by(role='doctor').all()) + list(User.query.filter_by(role='hospital').all())
+        contacts = list(User.query.filter_by(role='doctor').all()) + list(User.query.filter_by(role='hospital').all()) + list(User.query.filter_by(role='pharmacy').all())
+        patient_prescriptions = Prescription.query.filter_by(patient_id=uid).order_by(Prescription.created_at.desc()).all()
+        pharmacies = User.query.filter_by(role='pharmacy').all()
     else:
         contacts = User.query.filter(User.id != uid).all()
     
     selected_id = request.args.get('to', type=int)
-    return render_template('messages.html', messages=msgs, contacts=contacts, selected_id=selected_id)
+    return render_template('messages.html', messages=msgs, contacts=contacts, selected_id=selected_id,
+        patient_prescriptions=patient_prescriptions, pharmacies=pharmacies)
 
 @app.route('/messages/send', methods=['POST'])
 @require_login
@@ -1024,6 +1071,87 @@ def send_message():
         logger.error(f"Message error: {e}")
     
     return redirect(url_for('messages'))
+
+def parse_frequency(freq_str):
+    """Parse frequency string like '2x daily' to get the number of times per day."""
+    if not freq_str:
+        return 1
+    freq_str = freq_str.lower().strip()
+    # Common patterns: "2x daily", "3 times a day", "twice daily", etc.
+    import re
+    # Look for number followed by x or times
+    match = re.search(r'(\d+)', freq_str)
+    if match:
+        return int(match.group(1))
+    # Handle words: once=1, twice=2, thrice=3, etc. (rare but possible)
+    if 'twice' in freq_str or '2' in freq_str.split()[0] if freq_str.split() else False:
+        return 2
+    if 'thrice' in freq_str or 'three' in freq_str.split()[0] if freq_str.split() else False:
+        return 3
+    if 'once' in freq_str or '1' in freq_str.split()[0] if freq_str.split() else False:
+        return 1
+    # Default to 1 if can't parse
+    return 1
+
+@app.route('/patient/send-prescription', methods=['POST'])
+@require_login
+@require_role('patient')
+def patient_send_prescription():
+    user_id = session.get('user_id')
+    try:
+        prescription_id = int(request.form.get('prescription_id', 0))
+        pharmacy_id = int(request.form.get('pharmacy_id', 0))
+        address = request.form.get('pharmacy_address', '').strip()
+
+        if not prescription_id or not pharmacy_id or not address:
+            return redirect(url_for('messages', error='Please select a prescription, pharmacy and address.'))
+
+        prescription = Prescription.query.get(prescription_id)
+        if not prescription or prescription.patient_id != user_id:
+            return redirect(url_for('messages', error='Prescription not found.'))
+
+        pharmacy_user = User.query.filter_by(id=pharmacy_id, role='pharmacy').first()
+        if not pharmacy_user:
+            return redirect(url_for('messages', error='Invalid pharmacy selected.'))
+
+        if not prescription.medicines:
+            return redirect(url_for('messages', error='Prescription contains no medicines.'))
+
+        order_count = 0
+        for item in prescription.medicines:
+            med_id = item.get('medicine_id')
+            medicine = Medicine.query.get(med_id)
+            if not medicine:
+                continue
+            frequency_num = parse_frequency(item.get('frequency', '1x daily'))
+            days = int(item.get('days', 1))
+            quantity = frequency_num * days
+            quantity = quantity if quantity > 0 else 1
+            order = Order(
+                patient_id=user_id,
+                prescription_id=prescription.id,
+                medicine_id=medicine.id,
+                quantity=quantity,
+                total_price=medicine.unit_price * quantity,
+                address=address,
+                status='pending'
+            )
+            db.session.add(order)
+            order_count += 1
+
+        if order_count == 0:
+            return redirect(url_for('messages', error='No valid medicines found in prescription.'))
+
+        note = f"Prescription #{prescription.id} sent to pharmacy. Address: {address}"
+        msg = Message(sender_id=user_id, receiver_id=pharmacy_id, content=note)
+        db.session.add(msg)
+        db.session.commit()
+        log_activity(user_id, "SEND_PRESCRIPTION_PHARMACY", f"pharmacy_id={pharmacy_id}, prescription_id={prescription.id}, orders={order_count}")
+        return redirect(url_for('messages', success='Prescription sent to pharmacy successfully.'))
+    except Exception as e:
+        logger.error(f"Send prescription error: {e}")
+        db.session.rollback()
+        return redirect(url_for('messages', error='Unable to send prescription to pharmacy.'))
 
 @app.route('/chatbot')
 def chatbot():

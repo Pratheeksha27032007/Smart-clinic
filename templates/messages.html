@@ -46,4 +46,70 @@
     {% endif %}
   </div>
 </div>
+
+{% if session.get('role') == 'patient' %}
+<div class="two-col" style="margin-top:1.25rem;">
+  <div class="card">
+    <h3>Send Prescription to Pharmacy</h3>
+    <form action="/patient/send-prescription" method="POST" style="display:flex;flex-direction:column;gap:0.85rem;">
+      <div class="form-group">
+        <label>Prescription</label>
+        <select name="prescription_id" required>
+          <option value="">-- Select Prescription --</option>
+          {% for p in patient_prescriptions %}
+          <option value="{{ p.id }}">#{{ p.id }} from {{ p.created_at.strftime('%d %b %Y') }} ({{ p.status }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Pharmacy</label>
+        <select name="pharmacy_id" required>
+          <option value="">-- Select Pharmacy --</option>
+          {% for pharmacy in pharmacies %}
+          <option value="{{ pharmacy.id }}">{{ pharmacy.full_name or pharmacy.username }} ({{ pharmacy.email }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Delivery Address</label>
+        <textarea name="pharmacy_address" rows="3" required placeholder="Enter delivery address for pharmacy"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Send Prescription</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>Your Recent Prescriptions</h3>
+    {% if patient_prescriptions %}
+    <div style="display:flex;flex-direction:column;gap:0.75rem;">
+      {% for p in patient_prescriptions %}
+      <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
+          <div>
+            <strong style="color:var(--text);">#{{ p.id }} — {{ p.doctor.name }}</strong>
+            <div style="font-size:0.8rem;color:var(--text-3);">{{ p.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
+          </div>
+          <span class="badge badge-{% if p.status=='pending' %}yellow{% elif p.status=='dispensed' %}green{% else %}blue{% endif %}">{{ p.status }}</span>
+        </div>
+        <div style="margin-bottom:0.75rem;">
+          <strong style="color:var(--text-2);">Medicines:</strong>
+          <ul style="margin:0.5rem 0 0 1.5rem;color:var(--text-2);font-size:0.9rem;">
+            {% for med in p.medicines %}
+            <li>{{ med.get('medicine_name') or med.get('medicine_id') }} • {{ med.get('dosage') }} • {{ med.get('frequency') }} • {{ med.get('days') }} days</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% if p.instructions %}
+        <div style="padding:0.75rem;background:var(--bg-dark);border-radius:var(--r-sm);border-left:3px solid var(--cyan);font-size:0.85rem;">
+          <strong style="color:var(--text-2);">Instructions:</strong> {{ p.instructions }}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="empty-state">No prescriptions available yet.</p>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 {% endblock %}

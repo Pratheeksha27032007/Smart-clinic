@@ -140,38 +140,4 @@ window.toggleProfileEditor = function() {
   </div>
 </div>
 
-<div class="card" style="margin-top:1.25rem;">
-  <h3>Recent Prescriptions</h3>
-  {% if prescriptions %}
-  <div style="display:flex;flex-direction:column;gap:0.75rem;">
-    {% for p in prescriptions %}
-    <div style="background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--r);padding:1rem;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem;">
-        <div>
-          <strong style="color:var(--text);"> {{ p.doctor.name }}</strong>
-          <div style="font-size:0.8rem;color:var(--text-3);">{{ p.created_at.strftime('%d %b %Y, %I:%M %p') }}</div>
-        </div>
-        <span class="badge badge-{% if p.status=='pending' %}yellow{% elif p.status=='dispensed' %}green{% else %}blue{% endif %}">{{ p.status }}</span>
-      </div>
-      <div style="margin-bottom:0.75rem;">
-        <strong style="color:var(--text-2);">Medicines:</strong>
-        <ul style="margin:0.5rem 0 0 1.5rem;color:var(--text-2);font-size:0.9rem;">
-          {% for med in p.medicines %}
-          <li>{{ med.get('medicine_name') or med.get('medicine_id') }} - {{ med.get('dosage') }} {{ med.get('frequency') }} for {{ med.get('days') }} days</li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% if p.instructions %}
-      <div style="padding:0.75rem;background:var(--bg-dark);border-radius:var(--r-sm);border-left:3px solid var(--cyan);font-size:0.85rem;">
-        <strong style="color:var(--text-2);">Instructions:</strong> {{ p.instructions }}
-      </div>
-      {% endif %}
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <p class="empty-state">No prescriptions have been issued to your account yet.</p>
-  {% endif %}
-</div>
-
 {% endblock %}

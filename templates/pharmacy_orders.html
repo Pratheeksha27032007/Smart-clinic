@@ -13,14 +13,16 @@
   {% if orders %}
   <div class="table-wrap">
     <table class="table">
-      <thead><tr><th>Patient</th><th>Medicine</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Patient</th><th>Medicine</th><th>Qty</th><th>Total</th><th>Prescription</th><th>Address</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>
         {% for o in orders %}
         <tr>
-          <td style="color:var(--text);font-weight:600;">{{ o.patient.full_name or o.patient.username }}</td>
-          <td style="color:var(--text);">{{ o.medicine.name }}</td>
+          <td style="color:var(--text);font-weight:600;">{{ o.patient.full_name or o.patient.username if o.patient else 'Unknown' }}</td>
+          <td style="color:var(--text);">{{ o.medicine.name if o.medicine else 'Unknown' }}</td>
           <td>{{ o.quantity }}</td>
           <td style="color:var(--green);">₹{{ "%.2f"|format(o.total_price) }}</td>
+          <td style="color:var(--text-3);font-size:0.82rem;">{% if o.prescription %}#{{ o.prescription.id }}{% else %}—{% endif %}</td>
+          <td style="color:var(--text-3);font-size:0.82rem;max-width:12rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ o.address or '—' }}</td>
           <td><span class="badge badge-{% if o.status=='delivered' %}green{% elif o.status=='shipped' %}cyan{% elif o.status=='packing' %}purple{% elif o.status=='accepted' %}blue{% else %}yellow{% endif %}">{{ o.status }}</span></td>
           <td style="color:var(--text-3);font-size:0.78rem;">{{ o.created_at.strftime('%d %b') }}</td>
           <td>
@@ -31,6 +33,8 @@
               <form action="/pharmacy/pack-order/{{ o.id }}" method="POST" style="display:inline;"><button class="btn btn-purple btn-sm">📦 Pack</button></form>
               {% elif o.status == 'packing' %}
               <form action="/pharmacy/ship-order/{{ o.id }}" method="POST" style="display:inline;"><button class="btn btn-cyan btn-sm">🚚 Ship</button></form>
+              {% elif o.status == 'shipped' %}
+              <form action="/pharmacy/deliver/{{ o.id }}" method="POST" style="display:inline;"><button class="btn btn-success btn-sm">✅ Delivered</button></form>
               {% endif %}
             </div>
           </td>

@@ -1,0 +1,54 @@
+pharm 2 pharmacy@smartclinic.com
+status 500
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SmartClinic — Server Error</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<nav class="navbar">
+  <a href="/" class="nav-brand">
+    <div class="brand-icon">✚</div>
+    <span>SmartClinic</span>
+  </a>
+  <div class="nav-links">
+    
+      <a href="/" class="nav-link ">Dashboard</a>
+      <a href="/pharmacy/stock" class="nav-link ">Stock</a>
+      <a href="/pharmacy/orders" class="nav-link active">Orders</a>
+    
+  </div>
+  
+  <div class="nav-user">
+    <div class="nav-avatar">?</div>
+    <div>
+      <div style="font-size:0.8rem;color:var(--text);font-weight:600;line-height:1.2;">Pharmacy Staff</div>
+      <span class="nav-role-badge role-pharmacy">pharmacy</span>
+    </div>
+    <a href="/logout" class="nav-logout">Logout</a>
+  </div>
+  
+  <button class="hamburger" onclick="document.getElementById('mob').classList.toggle('open')">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mob">
+  
+    <a href="/" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Dashboard</a>
+    <a href="/pharmacy/stock" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Stock</a>
+    <a href="/pharmacy/orders" class="nav-link" onclick="document.getElementById('mob').classList.remove('open')">Orders</a>
+  
+  
+  <a href="/logout" class="nav-link" style="color:var(--red);">Logout</a>
+  
+</div>
+
+<main class="main-content">
+<div style="text-align:center;padding:4rem 1.5rem;min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+  <div style="font-size:4rem;font-weight:700;color:var(--red);margin-bottom:1rem;">500</div>
+  <h1 
