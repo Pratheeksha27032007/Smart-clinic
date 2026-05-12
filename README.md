@@ -381,4 +381,4 @@ This project is licensed under the MIT License — see LICENSE file for details.
 
 **Built with ❤️ for healthcare professionals**
 
-*Last Updated: January 2025 | v2.0*
+*Last Updated: May 2026 | v.0*
